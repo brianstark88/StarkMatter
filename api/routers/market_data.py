@@ -312,6 +312,78 @@ async def get_signals(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/sentiment")
+async def get_sentiment(symbol: Optional[str] = Query(default=None)):
+    """
+    Get Reddit sentiment data for symbols
+    
+    Args:
+        symbol: Optional symbol to filter by
+    
+    Returns:
+        List of sentiment data aggregated by symbol
+    """
+    try:
+        if symbol:
+            query = """
+                SELECT 
+                    symbol,
+                    subreddit,
+                    COUNT(*) as mentions,
+                    AVG(sentiment_score) as sentiment_score,
+                    SUM(CASE WHEN sentiment_score > 0 THEN 1 ELSE 0 END) as bullish_count,
+                    SUM(CASE WHEN sentiment_score < 0 THEN 1 ELSE 0 END) as bearish_count,
+                    MAX(created_at) as created_at
+                FROM reddit_mentions
+                WHERE symbol = ?
+                GROUP BY symbol, subreddit
+                ORDER BY mentions DESC
+                LIMIT 50
+            """
+            results = execute_query(query, (symbol,), fetch='all')
+        else:
+            query = """
+                SELECT 
+                    symbol,
+                    subreddit,
+                    COUNT(*) as mentions,
+                    AVG(sentiment_score) as sentiment_score,
+                    SUM(CASE WHEN sentiment_score > 0 THEN 1 ELSE 0 END) as bullish_count,
+                    SUM(CASE WHEN sentiment_score < 0 THEN 1 ELSE 0 END) as bearish_count,
+                    MAX(created_at) as created_at
+                FROM reddit_mentions
+                GROUP BY symbol, subreddit
+                ORDER BY mentions DESC
+                LIMIT 50
+            """
+            results = execute_query(query, fetch='all')
+        
+        if not results:
+            return []
+        
+        # Format results to match expected structure
+        sentiment_data = []
+        for idx, row in enumerate(results):
+            # Use index + hash to create a positive ID
+            row_id = abs(hash(f"{row['symbol']}_{row['subreddit']}")) % (10**9)
+            sentiment_data.append({
+                "id": row_id,
+                "symbol": row['symbol'],
+                "subreddit": row['subreddit'],
+                "mentions": row['mentions'],
+                "sentiment_score": float(row['sentiment_score']) if row['sentiment_score'] is not None else 0.0,
+                "bullish_count": int(row['bullish_count']) if row['bullish_count'] is not None else 0,
+                "bearish_count": int(row['bearish_count']) if row['bearish_count'] is not None else 0,
+                "created_at": row['created_at']
+            })
+        
+        return sentiment_data
+    
+    except Exception as e:
+        logger.error(f"Error fetching sentiment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/watchlist")
 async def get_watchlist():
     """Get symbols in watchlist"""

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Briefcase } from 'lucide-react';
 import { formatCurrency, formatPercent, cn, getChangeColor } from '../../lib/utils';
 import { portfolioAPI } from '../../lib/api';
 import type { Position } from '../../types';
@@ -14,9 +15,11 @@ export default function PositionsTable() {
   const fetchPositions = async () => {
     try {
       const data = await portfolioAPI.getPositions();
-      setPositions(data);
+      // Ensure data is always an array
+      setPositions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch positions:', error);
+      setPositions([]);
     } finally {
       setLoading(false);
     }
@@ -45,8 +48,8 @@ export default function PositionsTable() {
   const totalPnLPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Portfolio Positions</h3>
           <div className="flex gap-4 text-sm">
@@ -68,27 +71,27 @@ export default function PositionsTable() {
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-900">
+          <thead className="bg-gray-50 dark:bg-gray-900/50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Symbol
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Quantity
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Avg Price
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Current Price
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Market Value
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Unrealized P&L
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 % Change
               </th>
             </tr>
@@ -96,13 +99,18 @@ export default function PositionsTable() {
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {positions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                  No positions in portfolio. Start by adding positions or using paper trading.
+                <td colSpan={7} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center">
+                    <Briefcase className="h-10 w-10 text-gray-400 dark:text-gray-500 mb-3" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No positions in portfolio. Start by adding positions or using paper trading.
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : (
               positions.map((position) => (
-                <tr key={position.symbol} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <tr key={position.symbol} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {position.symbol}

@@ -20,9 +20,11 @@ export default function News() {
   const fetchNews = async () => {
     try {
       const data = await marketAPI.getNews(20);
-      setNews(data);
+      // Ensure data is always an array
+      setNews(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch news:', error);
+      setNews([]);
     } finally {
       setLoadingNews(false);
     }
@@ -31,9 +33,11 @@ export default function News() {
   const fetchSentiment = async () => {
     try {
       const data = await marketAPI.getSentiment();
-      setSentiment(data);
+      // Ensure data is always an array
+      setSentiment(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch sentiment:', error);
+      setSentiment([]);
     } finally {
       setLoadingSentiment(false);
     }

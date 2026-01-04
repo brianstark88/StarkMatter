@@ -25,9 +25,11 @@ export default function PaperTrading() {
         paperTradingAPI.getTrades()
       ]);
       setAccount(accountData);
-      setTrades(tradesData);
+      // Ensure trades is always an array
+      setTrades(Array.isArray(tradesData) ? tradesData : []);
     } catch (error) {
       console.error('Failed to fetch paper trading data:', error);
+      setTrades([]);
     } finally {
       setLoading(false);
     }

@@ -63,7 +63,8 @@ export const marketAPI = {
 
   getNews: async (limit = 20): Promise<NewsArticle[]> => {
     const { data } = await api.get('/api/market/news', { params: { limit } });
-    return data;
+    // Backend returns {count, articles}, extract the articles array
+    return Array.isArray(data) ? data : (data?.articles || []);
   },
 
   importReddit: async (subreddits?: string[]) => {
@@ -72,8 +73,17 @@ export const marketAPI = {
   },
 
   getSentiment: async (symbol?: string): Promise<RedditSentiment[]> => {
-    const { data } = await api.get('/api/market/sentiment', { params: { symbol } });
-    return data;
+    try {
+      const { data } = await api.get('/api/market/sentiment', { params: { symbol } });
+      return Array.isArray(data) ? data : [];
+    } catch (error: any) {
+      // Handle 404 gracefully - endpoint might not exist yet
+      if (error?.response?.status === 404) {
+        console.warn('Sentiment endpoint not available');
+        return [];
+      }
+      throw error;
+    }
   },
 
   importEconomic: async () => {
@@ -95,7 +105,8 @@ export const portfolioAPI = {
 
   getPositions: async (): Promise<Position[]> => {
     const { data } = await api.get('/api/portfolio/positions');
-    return data;
+    // Backend returns {count, positions}, extract the positions array
+    return Array.isArray(data) ? data : (data?.positions || []);
   },
 
   getPosition: async (symbol: string): Promise<Position> => {
@@ -135,7 +146,8 @@ export const paperTradingAPI = {
 
   getTrades: async (limit = 50): Promise<Trade[]> => {
     const { data } = await api.get('/api/portfolio/paper/trades', { params: { limit } });
-    return data;
+    // Backend returns {count, trades}, extract the trades array
+    return Array.isArray(data) ? data : (data?.trades || []);
   },
 
   resetAccount: async () => {
