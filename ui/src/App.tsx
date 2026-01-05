@@ -9,7 +9,7 @@ import TechnicalAnalysis from './pages/TechnicalAnalysis';
 import News from './pages/News';
 import AIInsights from './pages/AIInsights';
 import Settings from './pages/Settings';
-import TradingViewSimple from './pages/TradingViewSimple';
+import TradingViewPro from './pages/TradingViewPro';
 import './App.css';
 
 const queryClient = new QueryClient({
@@ -32,7 +32,7 @@ function App() {
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/paper-trading" element={<PaperTrading />} />
             <Route path="/analysis" element={<TechnicalAnalysis />} />
-            <Route path="/trading" element={<TradingViewSimple />} />
+            <Route path="/trading" element={<TradingViewPro />} />
             <Route path="/news" element={<News />} />
             <Route path="/insights" element={<AIInsights />} />
             <Route path="/settings" element={<Settings />} />

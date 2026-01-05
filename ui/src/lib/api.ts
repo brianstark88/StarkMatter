@@ -34,8 +34,9 @@ export const marketAPI = {
     return data;
   },
 
-  getHistorical: async (symbol: string, days = 30): Promise<MarketData[]> => {
+  getHistorical: async (symbol: string, days = 30): Promise<any> => {
     const { data } = await apiClient.get(`/api/market/historical/${symbol}`, { params: { days } });
+    // API returns {symbol, data: [...]} format
     return data;
   },
 
