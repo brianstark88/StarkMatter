@@ -27,6 +27,12 @@ export function formatPercent(value: number): string {
   return `${prefix}${formatted}%`;
 }
 
+export function formatPercentage(value: number): string {
+  const formatted = value.toFixed(2);
+  const prefix = value > 0 ? '+' : '';
+  return `${prefix}${formatted}%`;
+}
+
 export function formatVolume(value: number): string {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
   if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;

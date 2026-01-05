@@ -9,7 +9,8 @@ import {
   Brain,
   BarChart3,
   Settings,
-  Activity
+  Activity,
+  CandlestickChart
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -19,6 +20,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Trading View', href: '/trading', icon: CandlestickChart },
   { name: 'Market Data', href: '/market', icon: TrendingUp },
   { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
   { name: 'Paper Trading', href: '/paper-trading', icon: TestTube2 },

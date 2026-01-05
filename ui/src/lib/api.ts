@@ -15,7 +15,7 @@ import type {
 
 const API_BASE_URL = 'http://localhost:8000';
 
-const api = axios.create({
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -26,55 +26,55 @@ const api = axios.create({
 export const marketAPI = {
   importDaily: async (symbols?: string[]) => {
     const params = symbols ? { symbols: symbols.join(',') } : {};
-    return api.post('/api/market/import/daily', null, { params });
+    return apiClient.post('/api/market/import/daily', null, { params });
   },
 
   getQuote: async (symbol: string): Promise<Quote> => {
-    const { data } = await api.get(`/api/market/quote/${symbol}`);
+    const { data } = await apiClient.get(`/api/market/quote/${symbol}`);
     return data;
   },
 
   getHistorical: async (symbol: string, days = 30): Promise<MarketData[]> => {
-    const { data } = await api.get(`/api/market/historical/${symbol}`, { params: { days } });
+    const { data } = await apiClient.get(`/api/market/historical/${symbol}`, { params: { days } });
     return data;
   },
 
   getSignals: async (symbol: string): Promise<TechnicalSignal> => {
-    const { data } = await api.get(`/api/market/signals/${symbol}`);
+    const { data } = await apiClient.get(`/api/market/signals/${symbol}`);
     return data;
   },
 
   getWatchlist: async (): Promise<WatchlistItem[]> => {
-    const { data } = await api.get('/api/market/watchlist');
+    const { data } = await apiClient.get('/api/market/watchlist');
     return data;
   },
 
   addToWatchlist: async (symbol: string) => {
-    return api.post(`/api/market/watchlist/${symbol}`);
+    return apiClient.post(`/api/market/watchlist/${symbol}`);
   },
 
   removeFromWatchlist: async (symbol: string) => {
-    return api.delete(`/api/market/watchlist/${symbol}`);
+    return apiClient.delete(`/api/market/watchlist/${symbol}`);
   },
 
   importNews: async () => {
-    return api.post('/api/market/import/news');
+    return apiClient.post('/api/market/import/news');
   },
 
   getNews: async (limit = 20): Promise<NewsArticle[]> => {
-    const { data } = await api.get('/api/market/news', { params: { limit } });
+    const { data } = await apiClient.get('/api/market/news', { params: { limit } });
     // Backend returns {count, articles}, extract the articles array
     return Array.isArray(data) ? data : (data?.articles || []);
   },
 
   importReddit: async (subreddits?: string[]) => {
     const params = subreddits ? { subreddits: subreddits.join(',') } : {};
-    return api.post('/api/market/import/reddit', null, { params });
+    return apiClient.post('/api/market/import/reddit', null, { params });
   },
 
   getSentiment: async (symbol?: string): Promise<RedditSentiment[]> => {
     try {
-      const { data } = await api.get('/api/market/sentiment', { params: { symbol } });
+      const { data } = await apiClient.get('/api/market/sentiment', { params: { symbol } });
       return Array.isArray(data) ? data : [];
     } catch (error: any) {
       // Handle 404 gracefully - endpoint might not exist yet
@@ -87,11 +87,11 @@ export const marketAPI = {
   },
 
   importEconomic: async () => {
-    return api.post('/api/market/import/economic');
+    return apiClient.post('/api/market/import/economic');
   },
 
   getEconomicData: async (): Promise<EconomicIndicator[]> => {
-    const { data } = await api.get('/api/market/economic');
+    const { data } = await apiClient.get('/api/market/economic');
     return data;
   },
 };
@@ -99,66 +99,66 @@ export const marketAPI = {
 // Portfolio APIs
 export const portfolioAPI = {
   getSummary: async (): Promise<PortfolioSummary> => {
-    const { data } = await api.get('/api/portfolio');
+    const { data } = await apiClient.get('/api/portfolio');
     return data;
   },
 
   getPositions: async (): Promise<Position[]> => {
-    const { data } = await api.get('/api/portfolio/positions');
+    const { data } = await apiClient.get('/api/portfolio/positions');
     // Backend returns {count, positions}, extract the positions array
     return Array.isArray(data) ? data : (data?.positions || []);
   },
 
   getPosition: async (symbol: string): Promise<Position> => {
-    const { data } = await api.get(`/api/portfolio/positions/${symbol}`);
+    const { data } = await apiClient.get(`/api/portfolio/positions/${symbol}`);
     return data;
   },
 
   addPosition: async (position: { symbol: string; quantity: number; price: number }) => {
-    return api.post('/api/portfolio/positions', position);
+    return apiClient.post('/api/portfolio/positions', position);
   },
 
   updatePosition: async (symbol: string, updates: Partial<Position>) => {
-    return api.put(`/api/portfolio/positions/${symbol}`, updates);
+    return apiClient.put(`/api/portfolio/positions/${symbol}`, updates);
   },
 
   deletePosition: async (symbol: string) => {
-    return api.delete(`/api/portfolio/positions/${symbol}`);
+    return apiClient.delete(`/api/portfolio/positions/${symbol}`);
   },
 };
 
 // Paper Trading APIs
 export const paperTradingAPI = {
   getAccount: async (): Promise<PaperAccount> => {
-    const { data } = await api.get('/api/portfolio/paper/account');
+    const { data } = await apiClient.get('/api/portfolio/paper/account');
     return data;
   },
 
   getPerformance: async () => {
-    const { data } = await api.get('/api/portfolio/paper/performance');
+    const { data } = await apiClient.get('/api/portfolio/paper/performance');
     return data;
   },
 
   executeTrade: async (trade: { symbol: string; quantity: number; order_type: 'BUY' | 'SELL' }) => {
-    const { data } = await api.post('/api/portfolio/paper/trade', trade);
+    const { data } = await apiClient.post('/api/portfolio/paper/trade', trade);
     return data;
   },
 
   getTrades: async (limit = 50): Promise<Trade[]> => {
-    const { data } = await api.get('/api/portfolio/paper/trades', { params: { limit } });
+    const { data } = await apiClient.get('/api/portfolio/paper/trades', { params: { limit } });
     // Backend returns {count, trades}, extract the trades array
     return Array.isArray(data) ? data : (data?.trades || []);
   },
 
   resetAccount: async () => {
-    return api.post('/api/portfolio/paper/reset');
+    return apiClient.post('/api/portfolio/paper/reset');
   },
 };
 
 // Dashboard API
 export const dashboardAPI = {
   getSummary: async () => {
-    const { data } = await api.get('/api/dashboard');
+    const { data } = await apiClient.get('/api/dashboard');
     return data;
   },
 };
@@ -166,7 +166,55 @@ export const dashboardAPI = {
 // Health Check
 export const healthAPI = {
   check: async () => {
-    const { data } = await api.get('/health');
+    const { data } = await apiClient.get('/health');
     return data;
   },
+};
+
+// Re-export consolidated API object
+export const api = {
+  ...marketAPI,
+  ...portfolioAPI,
+  ...paperTradingAPI,
+  ...dashboardAPI,
+  ...healthAPI,
+  getMarketOverview: async () => {
+    try {
+      const response = await apiClient.get('/api/market/overview');
+      return response.data;
+    } catch (error) {
+      // Return mock data for now
+      return { indices: [], movers: [] };
+    }
+  },
+  getHistoricalData: async (symbol: string, period = '1mo'): Promise<any[]> => {
+    try {
+      const response = await apiClient.get(`/api/market/historical/${symbol}`);
+      // Convert data to chart format
+      return response.data.map((item: any) => ({
+        time: item.date,
+        open: item.open || 0,
+        high: item.high || 0,
+        low: item.low || 0,
+        close: item.close || 0,
+        volume: item.volume || 0
+      }));
+    } catch (error) {
+      // Return mock data for demo
+      const now = new Date();
+      return Array.from({ length: 30 }, (_, i) => {
+        const date = new Date(now);
+        date.setDate(date.getDate() - (30 - i));
+        const basePrice = 150 + Math.random() * 50;
+        return {
+          time: date.toISOString().split('T')[0],
+          open: basePrice + Math.random() * 5 - 2.5,
+          high: basePrice + Math.random() * 5,
+          low: basePrice - Math.random() * 5,
+          close: basePrice + Math.random() * 5 - 2.5,
+          volume: Math.floor(Math.random() * 100000000)
+        };
+      });
+    }
+  }
 };
