@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Newspaper, ExternalLink, RefreshCw, MessageSquare } from 'lucide-react';
 import { marketAPI } from '../lib/api';
-import { formatDateTime, getSentimentColor } from '../lib/utils';
+import { formatDateTime, getSentimentColor, cn } from '../lib/utils';
 import type { NewsArticle, RedditSentiment } from '../types';
 
 export default function News() {
@@ -11,6 +11,7 @@ export default function News() {
   const [loadingSentiment, setLoadingSentiment] = useState(true);
   const [importingNews, setImportingNews] = useState(false);
   const [importingReddit, setImportingReddit] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   useEffect(() => {
     fetchNews();
@@ -45,10 +46,15 @@ export default function News() {
 
   const importNews = async () => {
     setImportingNews(true);
+    setMessage(null);
     try {
-      await marketAPI.importNews();
+      const response = await marketAPI.importNews();
       await fetchNews();
-    } catch (error) {
+      setMessage({ type: 'success', text: `Successfully imported ${response.data?.articles_imported || 0} news articles` });
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to import news';
+      setMessage({ type: 'error', text: errorMsg });
       console.error('Failed to import news:', error);
     } finally {
       setImportingNews(false);
@@ -57,10 +63,29 @@ export default function News() {
 
   const importReddit = async () => {
     setImportingReddit(true);
+    setMessage(null);
     try {
-      await marketAPI.importReddit(['wallstreetbets', 'stocks', 'investing']);
-      await fetchSentiment();
-    } catch (error) {
+      const response = await marketAPI.importReddit(['wallstreetbets', 'stocks', 'investing']);
+      const data = response.data || response;
+      
+      if (data.status === 'skipped') {
+        setMessage({ 
+          type: 'info', 
+          text: 'Reddit API not configured. Please set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET environment variables.' 
+        });
+      } else if (data.status === 'success') {
+        await fetchSentiment();
+        setMessage({ 
+          type: 'success', 
+          text: `Successfully imported ${data.total_mentions || 0} Reddit mentions` 
+        });
+      } else {
+        setMessage({ type: 'info', text: 'Reddit import completed' });
+      }
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to import Reddit data';
+      setMessage({ type: 'error', text: errorMsg });
       console.error('Failed to import Reddit data:', error);
     } finally {
       setImportingReddit(false);
@@ -77,31 +102,51 @@ export default function News() {
       </div>
 
       {/* Import Actions */}
-      <div className="flex gap-4">
-        <button
-          onClick={importNews}
-          disabled={importingNews}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-        >
-          {importingNews ? (
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Newspaper className="h-4 w-4 mr-2" />
-          )}
-          {importingNews ? 'Importing...' : 'Import Latest News'}
-        </button>
-        <button
-          onClick={importReddit}
-          disabled={importingReddit}
-          className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
-        >
-          {importingReddit ? (
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <MessageSquare className="h-4 w-4 mr-2" />
-          )}
-          {importingReddit ? 'Importing...' : 'Import Reddit Sentiment'}
-        </button>
+      <div className="space-y-4">
+        <div className="flex gap-4">
+          <button
+            onClick={importNews}
+            disabled={importingNews}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            {importingNews ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Newspaper className="h-4 w-4 mr-2" />
+            )}
+            {importingNews ? 'Importing...' : 'Import Latest News'}
+          </button>
+          <button
+            onClick={importReddit}
+            disabled={importingReddit}
+            className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
+          >
+            {importingReddit ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <MessageSquare className="h-4 w-4 mr-2" />
+            )}
+            {importingReddit ? 'Importing...' : 'Import Reddit Sentiment'}
+          </button>
+        </div>
+        
+        {/* Message Display */}
+        {message && (
+          <div className={cn(
+            "px-4 py-3 rounded-lg flex items-center justify-between",
+            message.type === 'success' && "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800",
+            message.type === 'error' && "bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800",
+            message.type === 'info' && "bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
+          )}>
+            <span>{message.text}</span>
+            <button
+              onClick={() => setMessage(null)}
+              className="ml-4 text-current opacity-70 hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
