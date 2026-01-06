@@ -10,6 +10,7 @@ import News from './pages/News';
 import AIInsights from './pages/AIInsights';
 import Settings from './pages/Settings';
 import TradingViewPro from './pages/TradingViewPro';
+import SymbolBrowser from './pages/SymbolBrowser';
 import './App.css';
 
 const queryClient = new QueryClient({
@@ -33,6 +34,7 @@ function App() {
             <Route path="/paper-trading" element={<PaperTrading />} />
             <Route path="/analysis" element={<TechnicalAnalysis />} />
             <Route path="/trading" element={<TradingViewPro />} />
+            <Route path="/symbols" element={<SymbolBrowser />} />
             <Route path="/news" element={<News />} />
             <Route path="/insights" element={<AIInsights />} />
             <Route path="/settings" element={<Settings />} />

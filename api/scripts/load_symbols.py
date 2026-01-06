@@ -10,19 +10,40 @@ from data.symbols_list import ALL_SYMBOLS, SYMBOL_SECTORS, get_exchange
 from services.symbol_manager import SymbolManager
 from datetime import datetime
 import logging
+import yfinance as yf
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def get_company_name(symbol: str) -> str:
+    """Fetch real company name from yfinance"""
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+        # Try different fields for company name
+        name = info.get('longName') or info.get('shortName') or f'{symbol} Corporation'
+        return name
+    except Exception as e:
+        logger.warning(f"Could not fetch name for {symbol}: {e}")
+        return f'{symbol} Corporation'
 
 def load_predefined_symbols():
     """Load predefined symbols into the database"""
     symbol_manager = SymbolManager()
 
     symbols_data = []
-    for symbol in ALL_SYMBOLS:
+    total = len(ALL_SYMBOLS)
+
+    logger.info(f"Fetching company names for {total} symbols...")
+
+    for idx, symbol in enumerate(ALL_SYMBOLS, 1):
+        # Fetch real company name
+        company_name = get_company_name(symbol)
+
         symbol_data = {
             'symbol': symbol,
-            'name': f'{symbol} Corporation',  # Placeholder name
+            'name': company_name,
             'exchange': get_exchange(symbol),
             'sector': SYMBOL_SECTORS.get(symbol, 'Other'),
             'industry': '',
@@ -30,7 +51,13 @@ def load_predefined_symbols():
         }
         symbols_data.append(symbol_data)
 
-    logger.info(f"Loading {len(symbols_data)} symbols into database...")
+        logger.info(f"[{idx}/{total}] {symbol}: {company_name}")
+
+        # Small delay to avoid rate limiting
+        if idx % 10 == 0:
+            time.sleep(1)
+
+    logger.info(f"\nLoading {len(symbols_data)} symbols into database...")
     result = symbol_manager.save_symbols_to_db(symbols_data)
 
     logger.info(f"Successfully loaded {result['success']} symbols")
