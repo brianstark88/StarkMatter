@@ -9,7 +9,7 @@ from datetime import datetime
 from database import init_database
 
 # Import routers
-from routers import market_data, portfolio, websocket
+from routers import market_data, portfolio, websocket, symbols
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +40,7 @@ app.add_middleware(
 app.include_router(market_data.router)
 app.include_router(portfolio.router)
 app.include_router(websocket.router)
+app.include_router(symbols.router)
 
 
 @app.on_event("startup")

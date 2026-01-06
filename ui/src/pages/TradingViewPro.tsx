@@ -30,6 +30,7 @@ import { formatCurrency, formatPercentage, formatNumber, formatVolume } from '..
 import { useQuoteStream } from '../hooks/useWebSocket';
 import TradingModal from '../components/TradingModal';
 import type { OrderData } from '../components/TradingModal';
+import SymbolSearch from '../components/SymbolSearch';
 
 interface ChartData {
   time: string;
@@ -571,16 +572,11 @@ const TradingViewPro: React.FC = () => {
           </h1>
 
           {/* Symbol Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search symbols..."
-              className="pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none w-64"
-            />
-          </div>
+          <SymbolSearch
+            onSelectSymbol={(symbol) => setSelectedSymbol(symbol)}
+            placeholder="Search symbols..."
+            className="w-80"
+          />
 
           {/* Interval Selector */}
           <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">

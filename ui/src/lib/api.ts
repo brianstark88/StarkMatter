@@ -172,6 +172,41 @@ export const healthAPI = {
   },
 };
 
+// Symbol API
+export const symbolAPI = {
+  searchSymbols: async (query: string, limit = 20) => {
+    const { data } = await apiClient.get('/api/symbols/search', {
+      params: { q: query, limit }
+    });
+    return data;
+  },
+
+  listSymbols: async (params?: { exchange?: string; sector?: string; offset?: number; limit?: number }) => {
+    const { data } = await apiClient.get('/api/symbols/list', { params });
+    return data;
+  },
+
+  getSymbolDetails: async (symbol: string) => {
+    const { data } = await apiClient.get(`/api/symbols/${symbol}`);
+    return data;
+  },
+
+  getSymbolStats: async () => {
+    const { data } = await apiClient.get('/api/symbols/stats');
+    return data;
+  },
+
+  getSectors: async () => {
+    const { data } = await apiClient.get('/api/symbols/sectors');
+    return data;
+  },
+
+  getExchanges: async () => {
+    const { data } = await apiClient.get('/api/symbols/exchanges');
+    return data;
+  }
+};
+
 // Re-export consolidated API object
 export const api = {
   ...marketAPI,
@@ -179,6 +214,7 @@ export const api = {
   ...paperTradingAPI,
   ...dashboardAPI,
   ...healthAPI,
+  ...symbolAPI,
   getMarketOverview: async () => {
     try {
       const response = await apiClient.get('/api/market/overview');

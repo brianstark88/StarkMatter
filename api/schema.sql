@@ -107,6 +107,25 @@ CREATE TABLE IF NOT EXISTS economic_indicators (
 
 CREATE INDEX IF NOT EXISTS idx_econ_indicator_date ON economic_indicators(indicator_code, date);
 
+-- Master symbols table
+CREATE TABLE IF NOT EXISTS symbols (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL UNIQUE,
+    name TEXT,
+    exchange TEXT, -- NYSE, NASDAQ, AMEX, etc.
+    market_cap REAL,
+    sector TEXT,
+    industry TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    last_updated TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_symbols_symbol ON symbols(symbol);
+CREATE INDEX IF NOT EXISTS idx_symbols_exchange ON symbols(exchange);
+CREATE INDEX IF NOT EXISTS idx_symbols_sector ON symbols(sector);
+CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
+
 -- Watchlist
 CREATE TABLE IF NOT EXISTS watchlist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
