@@ -157,3 +157,35 @@ CREATE TABLE IF NOT EXISTS signals (
 );
 
 CREATE INDEX IF NOT EXISTS idx_signals_symbol_date ON signals(symbol, date);
+
+-- AI analysis history
+CREATE TABLE IF NOT EXISTS ai_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_category TEXT NOT NULL,
+    template_name TEXT NOT NULL,
+    symbol TEXT,
+    input_data TEXT,          -- JSON of all input parameters
+    rendered_prompt TEXT,     -- Full prompt that was sent
+    response TEXT,            -- Raw AI response
+    structured_data TEXT,     -- Parsed structured data (JSON)
+    execution_time_ms INTEGER,
+    tokens_used INTEGER,
+    model TEXT,
+    execution_mode TEXT DEFAULT 'manual',      -- 'api' or 'manual'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_analyses_symbol ON ai_analyses(symbol);
+CREATE INDEX IF NOT EXISTS idx_ai_analyses_template ON ai_analyses(template_category, template_name);
+CREATE INDEX IF NOT EXISTS idx_ai_analyses_created ON ai_analyses(created_at DESC);
+
+-- User feedback on analyses
+CREATE TABLE IF NOT EXISTS ai_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    analysis_id INTEGER NOT NULL,
+    rating INTEGER CHECK(rating >= 1 AND rating <= 5),
+    feedback TEXT,
+    helpful BOOLEAN,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (analysis_id) REFERENCES ai_analyses(id)
+);

@@ -1,0 +1,154 @@
+name: concept_explainer
+category: educational
+version: "1.0.0"
+description: "Explain trading and investing concepts in simple, clear language"
+
+metadata:
+  temperature: 0.4
+  max_tokens: 1500
+  estimated_cost: "$0.01"
+  recommended_use_cases:
+    - "learning trading concepts"
+    - "understanding indicators"
+    - "strategy education"
+  typical_runtime: "5-10 seconds"
+  data_freshness_required: "none"
+  skill_level: "beginner"
+  requires_chain_of_thought: false
+
+placeholders:
+  - name: concept
+    type: string
+    required: true
+    example: "RSI divergence"
+  - name: detail_level
+    type: string
+    required: false
+    default: "intermediate"
+    options: ["beginner", "intermediate", "advanced"]
+
+few_shot_examples:
+  - description: "RSI divergence explanation"
+    input:
+      concept: "RSI divergence"
+      detail_level: "intermediate"
+    output: |
+      ## What is RSI Divergence?
+
+      ### Simple Definition
+      RSI divergence occurs when the price of a stock and the RSI indicator move in opposite
+      directions. This often signals that the current trend may be losing strength and could reverse.
+
+      ### How It Works
+
+      **Bullish Divergence** (price goes down, RSI goes up)
+      - Price makes a lower low
+      - But RSI makes a higher low
+      - Signal: Selling pressure is weakening → potential upward reversal
+
+      **Bearish Divergence** (price goes up, RSI goes down)
+      - Price makes a higher high
+      - But RSI makes a lower high
+      - Signal: Buying pressure is weakening → potential downward reversal
+
+      ### Example
+
+      Imagine a stock declining from $100 to $90 to $85:
+      - First low: $90, RSI at 25
+      - Second low: $85, RSI at 32
+
+      Even though price went lower ($85 < $90), RSI went higher (32 > 25).
+      This bullish divergence suggests sellers are exhausted and a bounce may be coming.
+
+      ### How Traders Use It
+
+      - **Entry Signal**: Look for bullish divergence at support levels to go long
+      - **Exit Signal**: Bearish divergence at resistance warns to take profits or exit longs
+      - **Confirmation**: Use with other indicators (MACD, volume) to confirm
+
+      ### Important Notes
+
+      ✅ **Strengths:**
+      - Often catches trend reversals early
+      - Works across timeframes
+
+      ❌ **Limitations:**
+      - Can give false signals in strong trends
+      - Needs confirmation from price action
+      - Doesn't tell you exactly when reversal will happen
+
+      ### Related Concepts
+      - RSI (Relative Strength Index)
+      - MACD divergence
+      - Momentum indicators
+      - Trend reversal patterns
+
+system_prompt: |
+  You are a patient trading educator who explains complex concepts in simple, accessible language.
+  You use analogies, examples, and visual descriptions to help beginners understand.
+
+  **Teaching Approach:**
+  - Start with a simple definition (explain to a 12-year-old)
+  - Then build up with more detail
+  - Use concrete examples with numbers
+  - Explain practical application
+  - Note both strengths and limitations
+  - Avoid jargon unless explaining it
+
+  **Tone:** Friendly, encouraging, non-intimidating
+
+  IMPORTANT: This is for educational purposes only. Not financial advice.
+
+user_prompt: |
+  Explain the concept of **{{ concept }}** at a {{ detail_level }} level.
+
+  Please structure your explanation as follows:
+
+  ### Simple Definition
+  - One-paragraph explanation in plain language
+  - Avoid jargon or define it immediately
+
+  ### How It Works
+  - Break down the mechanics
+  - Use bullet points for clarity
+  - Include sub-types or variations if applicable
+
+  ### Example
+  - Provide a concrete example with real numbers
+  - Walk through a scenario step-by-step
+  - Use a specific stock or situation to illustrate
+
+  ### How Traders Use It
+  - Practical applications
+  - Common trading strategies using this concept
+  - When to apply it and when not to
+
+  ### Important Notes
+
+  ✅ **Strengths:**
+  - What makes this concept useful
+  - When it works best
+
+  ❌ **Limitations:**
+  - What to watch out for
+  - Common mistakes
+  - When it might fail
+
+  ### Related Concepts
+  - List 3-5 related concepts to learn next
+  - Brief one-sentence description of how they relate
+
+  **Note:** Adjust complexity based on detail_level:
+  - **Beginner**: Use very simple language, more analogies
+  - **Intermediate**: Assume basic trading knowledge
+  - **Advanced**: Include nuances, edge cases, advanced applications
+
+output_format:
+  type: markdown
+  required_sections:
+    - "Simple Definition"
+    - "How It Works"
+    - "Example"
+    - "How Traders Use It"
+    - "Important Notes"
+    - "Related Concepts"

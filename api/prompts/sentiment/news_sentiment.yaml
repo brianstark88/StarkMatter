@@ -1,0 +1,115 @@
+name: news_sentiment_analysis
+category: sentiment
+version: "1.0.0"
+description: "Analyze news headlines, extract themes, and score overall sentiment"
+
+metadata:
+  temperature: 0.3
+  max_tokens: 1500
+  estimated_cost: "$0.01"
+  recommended_use_cases:
+    - "morning briefing"
+    - "event-driven analysis"
+  typical_runtime: "5-10 seconds"
+  data_freshness_required: "intraday"
+  skill_level: "beginner"
+  requires_chain_of_thought: false
+
+placeholders:
+  - name: symbol
+    type: string
+    required: true
+    example: "TSLA"
+  - name: news_summary
+    type: data
+    source: news_summary
+    token_budget: 400
+
+few_shot_examples:
+  - description: "Positive earnings news"
+    input:
+      symbol: "NVDA"
+      news_summary: |
+        [+] 2025-01-05: NVIDIA beats Q4 earnings expectations, revenue up 22%
+        [+] 2025-01-05: NVIDIA announces new AI chip partnerships
+        [~] 2025-01-04: NVIDIA trading near all-time highs
+        [-] 2025-01-03: Analyst concerned about valuation multiples
+    output: |
+      ## News Sentiment Analysis: NVDA
+
+      ### Overall Sentiment: BULLISH
+      **Score: +0.65** (on -1 to +1 scale)
+
+      ### Key Themes
+      1. **Earnings Beat** - Strong Q4 results exceeded analyst expectations
+      2. **AI Growth** - New chip partnerships signal continued AI market dominance
+      3. **Valuation Concerns** - Some analysts questioning high P/E multiples
+
+      ### Headline Breakdown
+      - **Positive (2)**: Earnings beat, partnership expansion
+      - **Neutral (1)**: Price levels discussion
+      - **Negative (1)**: Valuation concern
+
+      ### Market Impact
+      The news flow is predominantly positive with strong fundamental catalysts (earnings, partnerships).
+      Valuation concerns are present but secondary. Overall bullish sentiment likely to support price action
+      in the near term.
+
+      ### Actionable Insight
+      Positive fundamental news provides support for long positions. Watch for profit-taking near all-time
+      highs as valuation concerns may cap upside.
+
+system_prompt: |
+  You are a financial news analyst specializing in sentiment analysis and market psychology.
+  You analyze news headlines and articles to gauge overall market sentiment toward stocks.
+
+  Your analysis should:
+  - Identify key themes across multiple headlines
+  - Score overall sentiment on a -1 (very bearish) to +1 (very bullish) scale
+  - Distinguish between fundamental news (earnings, products) and technical/price action
+  - Note any conflicting narratives
+
+  IMPORTANT: This is for educational purposes only. Not financial advice.
+
+user_prompt: |
+  Analyze the recent news sentiment for **{{ symbol }}**.
+
+  ## Recent News Headlines
+  {{ news_summary }}
+
+  Please provide:
+
+  ### Overall Sentiment
+  - Clear rating: BULLISH, NEUTRAL, or BEARISH
+  - Numeric score from -1.0 (very bearish) to +1.0 (very bullish)
+
+  ### Key Themes
+  - List the top 3-5 themes emerging from the headlines
+  - For each theme, note if it's positive, negative, or neutral
+
+  ### Headline Breakdown
+  - Count of positive, neutral, and negative headlines
+  - Note any particularly impactful headlines
+
+  ### Market Impact
+  - How might this news flow affect price action?
+  - Are there any conflicting signals?
+  - Short-term vs longer-term implications
+
+  ### Actionable Insight
+  - One-sentence summary for traders
+  - What to watch for next
+
+output_format:
+  type: markdown
+  required_sections:
+    - "Overall Sentiment"
+    - "Key Themes"
+    - "Market Impact"
+    - "Actionable Insight"
+  structured_fields:
+    - path: "sentiment.rating"
+      type: "enum"
+      values: ["BULLISH", "NEUTRAL", "BEARISH"]
+    - path: "sentiment.score"
+      type: "number"

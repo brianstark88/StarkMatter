@@ -1,0 +1,161 @@
+name: comprehensive_chart_analysis
+category: technical
+version: "1.0.0"
+description: "Complete technical analysis with trend, patterns, levels, and signals"
+
+metadata:
+  temperature: 0.2
+  max_tokens: 2048
+  estimated_cost: "$0.02"
+  recommended_use_cases:
+    - "daily screening"
+    - "deep dive analysis"
+  typical_runtime: "10-15 seconds"
+  data_freshness_required: "daily"
+  skill_level: "intermediate"
+  requires_chain_of_thought: true
+
+placeholders:
+  - name: symbol
+    type: string
+    required: true
+    example: "AAPL"
+    validation: "^[A-Z]{1,5}$"
+  - name: timeframe
+    type: string
+    required: false
+    default: "daily"
+    options: ["1h", "4h", "daily", "weekly"]
+  - name: price_data
+    type: data
+    source: market_data
+    days: 30
+    token_budget: 500
+  - name: indicators
+    type: data
+    source: technical_indicators
+    token_budget: 300
+
+few_shot_examples:
+  - description: "Bullish breakout example"
+    input:
+      symbol: "MSFT"
+      price_summary: "MSFT rose from $380 to $420 (+10.5%) over 3 weeks, breaking above resistance at $400"
+      indicators: "RSI: 62, MACD: bullish crossover 5 days ago, Above all major MAs"
+    output: |
+      ## Technical Analysis: MSFT (Daily)
+
+      ### 1. Trend Analysis
+      - **Primary Trend**: Bullish (strong)
+      - Price is making higher highs and higher lows
+      - Trading above all major moving averages (20/50/200 SMA)
+
+      ### 2. Support & Resistance
+      - **Support**: $400 (recent breakout level), $380 (prior consolidation)
+      - **Resistance**: $430 (measured move target), $450 (psychological)
+
+      ### 3. Technical Indicators
+      - RSI: 62 (neutral-bullish, room to run)
+      - MACD: Bullish crossover confirmed 5 days ago
+      - All moving averages in bullish alignment
+
+      ### 4. Trade Setup
+      - **Direction**: BUY
+      - **Entry**: $418 (pullback to breakout retest)
+      - **Stop Loss**: $395 (below breakout level)
+      - **Take Profit**: $445 (1.5x ATR extension)
+      - **Risk/Reward**: 1:2.2
+
+      ### 5. Confidence: HIGH
+      Breakout on volume with momentum confirmation. Multiple timeframes aligned.
+
+chain_of_thought:
+  enabled: true
+  reasoning_steps:
+    - "First, identify the primary trend direction from price structure (higher highs/lows vs lower highs/lows)"
+    - "Second, locate key support and resistance levels from recent pivots and volume nodes"
+    - "Third, check technical indicator readings (RSI, MACD, Bollinger Bands)"
+    - "Fourth, look for confluence or divergence between price action and indicators"
+    - "Fifth, synthesize findings into overall market posture"
+    - "Finally, if setup is favorable, define entry/stop/target with risk-reward ratio"
+
+system_prompt: |
+  You are a professional technical analyst with 15 years of experience analyzing equity markets.
+  You provide precise, actionable analysis backed by data. You always include confidence levels
+  and acknowledge uncertainty.
+
+  IMPORTANT: This is for educational purposes only. Not financial advice.
+
+  **Analysis Methodology:**
+  When analyzing, follow these steps:
+  1. Identify the primary trend direction from price structure (higher highs/lows vs lower highs/lows)
+  2. Locate key support and resistance levels from recent pivots and volume nodes
+  3. Check technical indicator readings (RSI, MACD, Bollinger Bands)
+  4. Look for confluence or divergence between price action and indicators
+  5. Synthesize findings into overall market posture
+  6. If setup is favorable, define entry/stop/target with risk-reward ratio
+
+  Show your reasoning at each step before reaching conclusions.
+
+user_prompt: |
+  Analyze the technical setup for **{{ symbol }}** on the {{ timeframe }} timeframe.
+
+  ## Recent Price Action
+  {{ price_data }}
+
+  ## Current Technical Indicators
+  {{ indicators }}
+
+  Please provide a comprehensive technical analysis covering:
+
+  ### 1. Trend Analysis
+  - Primary trend direction (bullish/bearish/sideways)
+  - Trend strength (strong/moderate/weak)
+  - Key moving average positions
+
+  ### 2. Support & Resistance
+  - Major support levels (list 2-3 with reasoning)
+  - Major resistance levels (list 2-3 with reasoning)
+  - Any price clusters or high-volume nodes
+
+  ### 3. Technical Indicators
+  - RSI interpretation (overbought/oversold/neutral)
+  - MACD signal (bullish/bearish crossover, divergence)
+  - Bollinger Band position and squeeze status
+
+  ### 4. Chart Patterns
+  - Any recognizable patterns forming (triangles, H&S, double tops/bottoms)
+  - Pattern completion percentage and invalidation level
+
+  ### 5. Trade Setup (if applicable)
+  If conditions favor a trade, provide:
+  - **Direction**: BUY or SELL
+  - **Entry**: $XX.XX (condition for entry)
+  - **Stop Loss**: $XX.XX (reasoning)
+  - **Take Profit**: $XX.XX (reasoning)
+  - **Risk/Reward Ratio**: X:1
+
+  ### 6. Confidence & Risks
+  - Overall setup confidence: High/Medium/Low
+  - Key risks or invalidation scenarios
+  - What would change your view
+
+  **Note:** Format numbers clearly. Use bullet points. Be specific with price levels.
+
+output_format:
+  type: markdown
+  required_sections:
+    - "Trend Analysis"
+    - "Support & Resistance"
+    - "Technical Indicators"
+    - "Trade Setup"
+    - "Confidence & Risks"
+  structured_fields:
+    - path: "trade_setup.direction"
+      type: "enum"
+      values: ["BUY", "SELL", "HOLD"]
+    - path: "trade_setup.entry"
+      type: "price"
+    - path: "confidence"
+      type: "enum"
+      values: ["HIGH", "MEDIUM", "LOW"]

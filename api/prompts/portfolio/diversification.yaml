@@ -1,0 +1,162 @@
+name: portfolio_diversification_check
+category: portfolio
+version: "1.0.0"
+description: "Analyze portfolio concentration risk and diversification gaps"
+
+metadata:
+  temperature: 0.3
+  max_tokens: 2000
+  estimated_cost: "$0.02"
+  recommended_use_cases:
+    - "monthly portfolio review"
+    - "risk assessment"
+  typical_runtime: "10-15 seconds"
+  data_freshness_required: "weekly"
+  skill_level: "intermediate"
+  requires_chain_of_thought: false
+
+placeholders:
+  - name: portfolio_data
+    type: data
+    source: portfolio_data
+    token_budget: 400
+
+few_shot_examples:
+  - description: "Concentrated tech portfolio"
+    input:
+      portfolio: |
+        AAPL: 25% ($25,000)
+        MSFT: 20% ($20,000)
+        GOOGL: 20% ($20,000)
+        NVDA: 15% ($15,000)
+        META: 10% ($10,000)
+        Cash: 10% ($10,000)
+    output: |
+      ## Portfolio Diversification Analysis
+
+      ### Risk Rating: HIGH
+      **Overall Score: 4/10** (needs improvement)
+
+      ### Key Findings
+
+      **Sector Concentration (CRITICAL)**
+      - Technology: 90% of invested capital
+      - This is extremely concentrated in a single sector
+      - **Risk**: Sector-wide selloff would impact entire portfolio
+
+      **Single-Stock Risk (HIGH)**
+      - AAPL represents 25% of portfolio (>20% threshold)
+      - Top 3 holdings = 65% of portfolio
+      - **Recommendation**: No single position should exceed 15-20%
+
+      **Diversification Gaps**
+      - Missing: Healthcare, Consumer Staples, Utilities, International
+      - No defensive sectors for downside protection
+      - No exposure to non-tech growth
+
+      ### Recommendations
+
+      **Immediate Actions** (Priority: HIGH)
+      1. Trim AAPL position from 25% → 15% (sell ~$10,000)
+      2. Trim MSFT and GOOGL from 20% each → 15% each (sell ~$5,000 each)
+      3. Use proceeds ($20,000) to add:
+         - Healthcare (e.g., JNJ, UNH): $8,000
+         - Consumer Staples (e.g., PG, KO): $6,000
+         - International (e.g., VEA): $6,000
+
+      **Target Allocation**
+      - Technology: 60% (reduced from 90%)
+      - Healthcare: 15%
+      - Consumer: 10%
+      - International: 10%
+      - Cash: 5%
+
+      ### Risk Metrics
+      - **Diversification Score**: 4/10 (poor)
+      - **Sector Concentration**: Extreme (90% in one sector)
+      - **Single-Stock Risk**: High (25% in one stock)
+      - **Correlation Risk**: High (all tech stocks move together)
+
+system_prompt: |
+  You are a professional portfolio manager specializing in risk management and diversification.
+  You analyze portfolios to identify concentration risks and diversification gaps.
+
+  **Key Risk Metrics to Evaluate:**
+  - Sector concentration (ideal: no sector >30%)
+  - Single-stock concentration (ideal: no stock >15-20%)
+  - Geographic diversification
+  - Asset class mix (stocks, bonds, alternatives)
+  - Correlation between holdings
+
+  **Risk Levels:**
+  - Low Risk: Well-diversified across sectors, geographies, asset classes
+  - Medium Risk: Some concentration but manageable
+  - High Risk: Concentrated in 1-2 sectors or stocks
+
+  IMPORTANT: This is for educational purposes only. Not financial advice.
+
+user_prompt: |
+  Analyze the diversification and concentration risk of this portfolio.
+
+  ## Current Holdings
+  {{ portfolio_data }}
+
+  Please provide:
+
+  ### Risk Rating
+  - Overall risk level (LOW/MEDIUM/HIGH/CRITICAL)
+  - Diversification score (0-10, where 10 is perfectly diversified)
+
+  ### Key Findings
+
+  **Sector Concentration**
+  - List sector allocations
+  - Identify any sectors above 30%
+  - Note sectors completely missing
+
+  **Single-Stock Risk**
+  - Identify positions above 15-20% threshold
+  - Calculate top 3 holdings concentration
+  - Flag any concerning concentrations
+
+  **Diversification Gaps**
+  - Missing sectors or asset classes
+  - Geographic concentration
+  - Correlation risks (stocks that move together)
+
+  ### Recommendations
+
+  **Immediate Actions** (if any high-risk issues)
+  1. Specific rebalancing trades
+  2. Positions to trim
+  3. Sectors/assets to add
+
+  **Target Allocation**
+  - Suggested improved allocation percentages
+  - Explain reasoning for changes
+
+  **Long-Term Improvements**
+  - Strategic diversification plan
+  - Asset classes to consider adding
+
+  ### Risk Metrics
+  - Diversification Score: X/10
+  - Sector Concentration: (Low/Medium/High/Extreme)
+  - Single-Stock Risk: (Low/Medium/High)
+  - Overall Risk Assessment
+
+  **Note:** Be specific with percentages and dollar amounts. Prioritize recommendations by urgency.
+
+output_format:
+  type: markdown
+  required_sections:
+    - "Risk Rating"
+    - "Key Findings"
+    - "Recommendations"
+    - "Risk Metrics"
+  structured_fields:
+    - path: "risk_rating.level"
+      type: "enum"
+      values: ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    - path: "risk_rating.score"
+      type: "number"

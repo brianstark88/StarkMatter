@@ -1,0 +1,179 @@
+name: multi_factor_trade_idea
+category: signals
+version: "1.0.0"
+description: "Generate trade idea combining technical, fundamental, and sentiment analysis"
+
+metadata:
+  temperature: 0.2
+  max_tokens: 2500
+  estimated_cost: "$0.03"
+  recommended_use_cases:
+    - "trade idea generation"
+    - "opportunity screening"
+  typical_runtime: "15-20 seconds"
+  data_freshness_required: "daily"
+  skill_level: "advanced"
+  requires_chain_of_thought: true
+
+placeholders:
+  - name: symbol
+    type: string
+    required: true
+  - name: price_data
+    type: data
+    source: market_data
+    days: 30
+    token_budget: 400
+  - name: indicators
+    type: data
+    source: technical_indicators
+    token_budget: 300
+  - name: news_summary
+    type: data
+    source: news_summary
+    token_budget: 300
+
+few_shot_examples:
+  - description: "Bullish setup with aligned factors"
+    input:
+      symbol: "META"
+      technical_summary: "Bullish breakout, RSI 58, MACD crossover"
+      news_summary: "Positive earnings, new product launches"
+    output: |
+      ## Trade Idea: META (Long)
+
+      ### Setup Summary
+      **Direction**: BUY
+      **Timeframe**: 2-4 weeks
+      **Confidence**: HIGH
+
+      ### Factor Analysis
+
+      **Technical (Weight: 40%)**
+      - Bullish breakout above $450 resistance
+      - RSI at 58 (neutral-bullish, room to run)
+      - MACD bullish crossover confirmed
+      - **Score**: 8/10
+
+      **Fundamental/News (Weight: 40%)**
+      - Earnings beat by 12%
+      - New AI product launches gaining traction
+      - Strong user growth metrics
+      - **Score**: 9/10
+
+      **Sentiment (Weight: 20%)**
+      - Overall positive news flow
+      - Institutional buying evident
+      - **Score**: 7/10
+
+      **Combined Score**: 8.2/10
+
+      ### Trade Structure
+      - **Entry**: $455 (on pullback to breakout level)
+      - **Stop Loss**: $435 (below breakout zone)
+      - **Take Profit 1**: $485 (6.6% gain)
+      - **Take Profit 2**: $510 (12% gain)
+      - **Position Size**: 2% of portfolio
+      - **Risk/Reward**: 1:2.5
+
+      ### Risk Factors
+      - Market-wide tech selloff could invalidate setup
+      - Resistance at $500 (prior high)
+      - Earnings fade if guidance disappoints
+
+      ### Action Plan
+      1. Wait for pullback to $455 area
+      2. Enter with limit order
+      3. If fills, set stop at $435
+      4. Take 50% profits at $485, let rest run to $510
+
+chain_of_thought:
+  enabled: true
+  reasoning_steps:
+    - "Evaluate technical setup: trend, support/resistance, indicators"
+    - "Assess fundamental/news catalysts: earnings, product news, sentiment"
+    - "Weight each factor (technical 40%, fundamental 40%, sentiment 20%)"
+    - "Calculate combined score to determine confidence level"
+    - "Define precise entry, stop, and targets based on technical levels"
+    - "Identify key risks and invalidation scenarios"
+    - "Create step-by-step action plan"
+
+system_prompt: |
+  You are a professional trader who combines technical analysis, fundamental analysis, and
+  market sentiment to generate high-probability trade ideas. You use a disciplined, multi-factor
+  approach to evaluate opportunities.
+
+  **Methodology:**
+  1. Evaluate technical setup (40% weight) - trend, patterns, indicators
+  2. Assess fundamental/news catalysts (40% weight) - earnings, products, growth
+  3. Gauge market sentiment (20% weight) - news flow, social media, institutional activity
+  4. Weight factors to calculate combined score (0-10 scale)
+  5. Only recommend trades with score >= 7.0 and clear risk/reward >= 2:1
+  6. Always define precise entry, stop, targets, and position size
+
+  IMPORTANT: This is for educational purposes only. Not financial advice.
+
+user_prompt: |
+  Generate a trade idea for **{{ symbol }}** using multi-factor analysis.
+
+  ## Price Action & Technical Indicators
+  {{ price_data }}
+
+  {{ indicators }}
+
+  ## News & Sentiment
+  {{ news_summary }}
+
+  Provide a complete trade idea with the following structure:
+
+  ### Setup Summary
+  - Direction (BUY/SELL/HOLD)
+  - Timeframe (hours/days/weeks)
+  - Overall Confidence (HIGH/MEDIUM/LOW)
+
+  ### Factor Analysis
+  For each factor (Technical, Fundamental/News, Sentiment):
+  - Key observations
+  - Score out of 10
+  - Weight percentage
+
+  **Combined Score** (weighted average, must be >= 7.0 to recommend)
+
+  ### Trade Structure
+  - **Entry**: Specific price level and condition
+  - **Stop Loss**: Price and reasoning
+  - **Take Profit**: 1-2 target levels
+  - **Position Size**: Percentage of portfolio (typically 1-3%)
+  - **Risk/Reward**: Ratio (must be >= 2:1)
+
+  ### Risk Factors
+  - List 3-5 key risks to this trade
+  - What would invalidate the setup?
+
+  ### Action Plan
+  - Step-by-step execution instructions
+  - What to watch for
+
+  **Note:** If combined score is below 7.0 or R:R is below 2:1, recommend NO TRADE and explain why.
+
+output_format:
+  type: markdown
+  required_sections:
+    - "Setup Summary"
+    - "Factor Analysis"
+    - "Trade Structure"
+    - "Risk Factors"
+    - "Action Plan"
+  structured_fields:
+    - path: "setup.direction"
+      type: "enum"
+      values: ["BUY", "SELL", "HOLD", "NO_TRADE"]
+    - path: "setup.confidence"
+      type: "enum"
+      values: ["HIGH", "MEDIUM", "LOW"]
+    - path: "trade_structure.entry"
+      type: "price"
+    - path: "trade_structure.stop_loss"
+      type: "price"
+    - path: "combined_score"
+      type: "number"
