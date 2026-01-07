@@ -34,6 +34,11 @@ export const marketAPI = {
     return data;
   },
 
+  getBatchQuotes: async (symbols: string[]): Promise<Record<string, Quote>> => {
+    const { data } = await apiClient.post('/api/market/quotes/batch', symbols);
+    return data;
+  },
+
   getHistorical: async (symbol: string, days = 30): Promise<any> => {
     const { data } = await apiClient.get(`/api/market/historical/${symbol}`, { params: { days } });
     // API returns {symbol, data: [...]} format
@@ -62,30 +67,22 @@ export const marketAPI = {
     return apiClient.post('/api/market/import/news');
   },
 
+  startNewsImport: async (limitPerSource = 5): Promise<{ task_id: string; status: string }> => {
+    const { data } = await apiClient.post(`/api/news/import/start?limit_per_source=${limitPerSource}`);
+    return data;
+  },
+
+  getNewsImportStatus: async (taskId: string) => {
+    const { data } = await apiClient.get(`/api/news/import/status/${taskId}`);
+    return data;
+  },
+
   getNews: async (limit = 20): Promise<NewsArticle[]> => {
     const { data } = await apiClient.get('/api/market/news', { params: { limit } });
     // Backend returns {count, articles}, extract the articles array
     return Array.isArray(data) ? data : (data?.articles || []);
   },
 
-  importReddit: async (subreddits?: string[]) => {
-    const params = subreddits ? { subreddits: subreddits.join(',') } : {};
-    return apiClient.post('/api/market/import/reddit', null, { params });
-  },
-
-  getSentiment: async (symbol?: string): Promise<RedditSentiment[]> => {
-    try {
-      const { data } = await apiClient.get('/api/market/sentiment', { params: { symbol } });
-      return Array.isArray(data) ? data : [];
-    } catch (error: any) {
-      // Handle 404 gracefully - endpoint might not exist yet
-      if (error?.response?.status === 404) {
-        console.warn('Sentiment endpoint not available');
-        return [];
-      }
-      throw error;
-    }
-  },
 
   importEconomic: async () => {
     return apiClient.post('/api/market/import/economic');

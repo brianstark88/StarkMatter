@@ -194,7 +194,8 @@ async def list_symbols(
     exchange: Optional[str] = Query(default=None, description="Filter by exchange"),
     sector: Optional[str] = Query(default=None, description="Filter by sector"),
     offset: int = Query(default=0, ge=0, description="Pagination offset"),
-    limit: int = Query(default=100, le=1000, description="Maximum results")
+    limit: int = Query(default=100, le=1000, description="Maximum results"),
+    include_prices: bool = Query(default=True, description="Include latest prices from database")
 ):
     """
     Get list of symbols with optional filters
@@ -204,29 +205,94 @@ async def list_symbols(
         sector: Filter by sector
         offset: Pagination offset
         limit: Maximum results
+        include_prices: Whether to include latest price data
 
     Returns:
-        Paginated list of symbols
+        Paginated list of symbols with optional price data
     """
     try:
-        # Build query based on filters
-        if exchange:
-            symbols = symbol_manager.get_symbols_by_exchange(exchange, limit)
-        elif sector:
-            symbols = symbol_manager.get_symbols_by_sector(sector, limit)
-        else:
-            # Get all symbols with pagination
-            from database import execute_query
-            symbols = execute_query("""
-                SELECT symbol, name, exchange, sector, industry
-                FROM symbols
-                WHERE is_active = 1
-                ORDER BY symbol
-                LIMIT ? OFFSET ?
-            """, (limit, offset), fetch='all')
+        from database import execute_query
 
-            if not symbols:
-                symbols = []
+        # Build query based on filters
+        if include_prices:
+            # Join with market_data to get latest prices
+            if exchange:
+                query = """
+                    SELECT
+                        s.symbol, s.name, s.exchange, s.sector, s.industry,
+                        m.close as price, m.date as price_date
+                    FROM symbols s
+                    LEFT JOIN (
+                        SELECT symbol, close, date
+                        FROM market_data
+                        WHERE (symbol, date) IN (
+                            SELECT symbol, MAX(date)
+                            FROM market_data
+                            GROUP BY symbol
+                        )
+                    ) m ON s.symbol = m.symbol
+                    WHERE s.is_active = 1 AND s.exchange = ?
+                    ORDER BY s.symbol
+                    LIMIT ? OFFSET ?
+                """
+                symbols = execute_query(query, (exchange, limit, offset), fetch='all')
+            elif sector:
+                query = """
+                    SELECT
+                        s.symbol, s.name, s.exchange, s.sector, s.industry,
+                        m.close as price, m.date as price_date
+                    FROM symbols s
+                    LEFT JOIN (
+                        SELECT symbol, close, date
+                        FROM market_data
+                        WHERE (symbol, date) IN (
+                            SELECT symbol, MAX(date)
+                            FROM market_data
+                            GROUP BY symbol
+                        )
+                    ) m ON s.symbol = m.symbol
+                    WHERE s.is_active = 1 AND s.sector = ?
+                    ORDER BY s.symbol
+                    LIMIT ? OFFSET ?
+                """
+                symbols = execute_query(query, (sector, limit, offset), fetch='all')
+            else:
+                query = """
+                    SELECT
+                        s.symbol, s.name, s.exchange, s.sector, s.industry,
+                        m.close as price, m.date as price_date
+                    FROM symbols s
+                    LEFT JOIN (
+                        SELECT symbol, close, date
+                        FROM market_data
+                        WHERE (symbol, date) IN (
+                            SELECT symbol, MAX(date)
+                            FROM market_data
+                            GROUP BY symbol
+                        )
+                    ) m ON s.symbol = m.symbol
+                    WHERE s.is_active = 1
+                    ORDER BY s.symbol
+                    LIMIT ? OFFSET ?
+                """
+                symbols = execute_query(query, (limit, offset), fetch='all')
+        else:
+            # Original query without prices
+            if exchange:
+                symbols = symbol_manager.get_symbols_by_exchange(exchange, limit)
+            elif sector:
+                symbols = symbol_manager.get_symbols_by_sector(sector, limit)
+            else:
+                symbols = execute_query("""
+                    SELECT symbol, name, exchange, sector, industry
+                    FROM symbols
+                    WHERE is_active = 1
+                    ORDER BY symbol
+                    LIMIT ? OFFSET ?
+                """, (limit, offset), fetch='all')
+
+        if not symbols:
+            symbols = []
 
         # Get total count
         total = symbol_manager.get_symbol_count()

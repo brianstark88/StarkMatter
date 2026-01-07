@@ -9,7 +9,7 @@ from datetime import datetime
 from database import init_database
 
 # Import routers
-from routers import market_data, portfolio, websocket, symbols, ai_analysis, system
+from routers import market_data, portfolio, websocket, symbols, ai_analysis, system, news_import
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +43,7 @@ app.include_router(websocket.router)
 app.include_router(symbols.router)
 app.include_router(ai_analysis.router)
 app.include_router(system.router)
+app.include_router(news_import.router)
 
 
 @app.on_event("startup")

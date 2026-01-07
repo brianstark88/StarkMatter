@@ -20,6 +20,8 @@ interface Symbol {
   exchange: string;
   sector: string;
   industry: string;
+  price?: number;
+  price_date?: string;
 }
 
 const SymbolBrowser: React.FC = () => {
@@ -28,7 +30,7 @@ const SymbolBrowser: React.FC = () => {
   const [pageSize, setPageSize] = useState(50);
   const [selectedExchange, setSelectedExchange] = useState<string>('');
   const [selectedSector, setSelectedSector] = useState<string>('');
-  const [sortField, setSortField] = useState<'symbol' | 'name' | 'exchange' | 'sector'>('symbol');
+  const [sortField, setSortField] = useState<'symbol' | 'name' | 'exchange' | 'sector' | 'price'>('symbol');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Fetch symbols with filters
@@ -70,6 +72,12 @@ const SymbolBrowser: React.FC = () => {
 
   // Sort symbols client-side
   const sortedSymbols = [...symbols].sort((a, b) => {
+    if (sortField === 'price') {
+      const aPrice = a.price || 0;
+      const bPrice = b.price || 0;
+      return sortDirection === 'asc' ? aPrice - bPrice : bPrice - aPrice;
+    }
+
     const aValue = a[sortField] || '';
     const bValue = b[sortField] || '';
 
@@ -115,6 +123,11 @@ const SymbolBrowser: React.FC = () => {
     if (exchange.includes('NASDAQ')) return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
     if (exchange.includes('NYSE')) return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
     return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  };
+
+  const formatPrice = (price: number | undefined) => {
+    if (!price) return '—';
+    return `$${price.toFixed(2)}`;
   };
 
   return (
@@ -253,6 +266,15 @@ const SymbolBrowser: React.FC = () => {
                       </th>
                       <th
                         className="px-6 py-4 text-left cursor-pointer hover:bg-gray-700/50 transition-colors"
+                        onClick={() => handleSort('price')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-gray-300">Price</span>
+                          <ArrowUpDown className="h-4 w-4 text-gray-500" />
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left cursor-pointer hover:bg-gray-700/50 transition-colors"
                         onClick={() => handleSort('exchange')}
                       >
                         <div className="flex items-center space-x-2">
@@ -288,6 +310,11 @@ const SymbolBrowser: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-gray-300">
                           {symbol.name || '—'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-semibold text-white">
+                            {formatPrice(symbol.price)}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded text-xs font-medium border ${getExchangeBadgeColor(symbol.exchange)}`}>

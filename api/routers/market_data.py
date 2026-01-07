@@ -12,7 +12,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.yahoo_import import YahooFinanceService
 from services.news_aggregator import NewsAggregator
-from services.reddit_scraper import RedditScraper
 from services.fred_import import FREDService
 from services.technical_analysis import TechnicalAnalysisService
 from database import execute_query
@@ -87,6 +86,37 @@ async def get_quote(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/quotes/batch")
+async def get_batch_quotes(symbols: List[str]):
+    """
+    Get latest quotes for multiple symbols
+
+    Args:
+        symbols: List of stock ticker symbols
+
+    Returns:
+        Dictionary of quotes by symbol
+    """
+    try:
+        yahoo_service = YahooFinanceService()
+        quotes = {}
+
+        for symbol in symbols:
+            try:
+                quote = yahoo_service.fetch_quote(symbol)
+                if quote and quote.get('price'):
+                    quotes[symbol] = quote
+            except Exception as e:
+                logger.warning(f"Failed to fetch quote for {symbol}: {e}")
+                continue
+
+        return quotes
+
+    except Exception as e:
+        logger.error(f"Error fetching batch quotes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/historical/{symbol}")
 async def get_historical(
     symbol: str,
@@ -144,12 +174,12 @@ async def get_historical(
 
 
 @router.post("/import/news")
-async def import_news(limit_per_source: int = Query(default=10, le=50)):
+async def import_news(limit_per_source: int = Query(default=5, le=20)):
     """
-    Import latest financial news from RSS feeds
+    Import latest financial news from RSS feeds with full article content
 
     Args:
-        limit_per_source: Number of articles per source
+        limit_per_source: Number of articles per source (default 5, max 20)
 
     Returns:
         Import results
@@ -206,47 +236,6 @@ async def get_news(limit: int = Query(default=20, le=100)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/import/reddit")
-async def import_reddit(
-    subreddits: Optional[List[str]] = Query(default=None),
-    limit_per_sub: int = Query(default=50, le=100)
-):
-    """
-    Scrape Reddit for stock mentions
-
-    Args:
-        subreddits: List of subreddit names
-        limit_per_sub: Posts per subreddit
-
-    Returns:
-        Import results with trending tickers
-    """
-    try:
-        scraper = RedditScraper()
-
-        if not scraper.reddit:
-            return {
-                "status": "skipped",
-                "message": "Reddit API not configured"
-            }
-
-        if not subreddits:
-            subreddits = ['wallstreetbets', 'stocks', 'investing']
-
-        mentions = scraper.scrape_multiple_subreddits(subreddits, limit_per_sub)
-        scraper.save_to_database(mentions)
-
-        trending = scraper.get_trending_tickers(mentions, min_mentions=3)
-
-        return {
-            "status": "success",
-            "total_mentions": len(mentions),
-            "trending_tickers": trending
-        }
-
-    except Exception as e:
-        logger.error(f"Error importing Reddit data: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/import/economic")
@@ -312,76 +301,6 @@ async def get_signals(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/sentiment")
-async def get_sentiment(symbol: Optional[str] = Query(default=None)):
-    """
-    Get Reddit sentiment data for symbols
-    
-    Args:
-        symbol: Optional symbol to filter by
-    
-    Returns:
-        List of sentiment data aggregated by symbol
-    """
-    try:
-        if symbol:
-            query = """
-                SELECT 
-                    symbol,
-                    subreddit,
-                    COUNT(*) as mentions,
-                    AVG(sentiment_score) as sentiment_score,
-                    SUM(CASE WHEN sentiment_score > 0 THEN 1 ELSE 0 END) as bullish_count,
-                    SUM(CASE WHEN sentiment_score < 0 THEN 1 ELSE 0 END) as bearish_count,
-                    MAX(created_at) as created_at
-                FROM reddit_mentions
-                WHERE symbol = ?
-                GROUP BY symbol, subreddit
-                ORDER BY mentions DESC
-                LIMIT 50
-            """
-            results = execute_query(query, (symbol,), fetch='all')
-        else:
-            query = """
-                SELECT 
-                    symbol,
-                    subreddit,
-                    COUNT(*) as mentions,
-                    AVG(sentiment_score) as sentiment_score,
-                    SUM(CASE WHEN sentiment_score > 0 THEN 1 ELSE 0 END) as bullish_count,
-                    SUM(CASE WHEN sentiment_score < 0 THEN 1 ELSE 0 END) as bearish_count,
-                    MAX(created_at) as created_at
-                FROM reddit_mentions
-                GROUP BY symbol, subreddit
-                ORDER BY mentions DESC
-                LIMIT 50
-            """
-            results = execute_query(query, fetch='all')
-        
-        if not results:
-            return []
-        
-        # Format results to match expected structure
-        sentiment_data = []
-        for idx, row in enumerate(results):
-            # Use index + hash to create a positive ID
-            row_id = abs(hash(f"{row['symbol']}_{row['subreddit']}")) % (10**9)
-            sentiment_data.append({
-                "id": row_id,
-                "symbol": row['symbol'],
-                "subreddit": row['subreddit'],
-                "mentions": row['mentions'],
-                "sentiment_score": float(row['sentiment_score']) if row['sentiment_score'] is not None else 0.0,
-                "bullish_count": int(row['bullish_count']) if row['bullish_count'] is not None else 0,
-                "bearish_count": int(row['bearish_count']) if row['bearish_count'] is not None else 0,
-                "created_at": row['created_at']
-            })
-        
-        return sentiment_data
-    
-    except Exception as e:
-        logger.error(f"Error fetching sentiment: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/watchlist")

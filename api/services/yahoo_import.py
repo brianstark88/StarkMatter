@@ -9,12 +9,16 @@ import logging
 from typing import List, Dict, Optional
 import sys
 import os
+import pytz
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import execute_many, execute_query
 
 logger = logging.getLogger(__name__)
+
+# Eastern Time timezone
+EST = pytz.timezone('America/New_York')
 
 
 class YahooFinanceService:
@@ -98,11 +102,16 @@ class YahooFinanceService:
 
             articles = []
             for item in news[:10]:  # Limit to 10 articles
+                # Convert timestamp to EST
+                timestamp = item.get('providerPublishTime', 0)
+                published_utc = datetime.fromtimestamp(timestamp, tz=pytz.UTC)
+                published_est = published_utc.astimezone(EST)
+
                 articles.append({
                     'title': item.get('title'),
                     'publisher': item.get('publisher'),
                     'link': item.get('link'),
-                    'published': datetime.fromtimestamp(item.get('providerPublishTime', 0)),
+                    'published': published_est,
                     'symbol': symbol
                 })
 
