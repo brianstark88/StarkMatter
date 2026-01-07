@@ -16,6 +16,7 @@ This plan implements a comprehensive AI-powered trading analysis system for Star
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.3 | 2026-01-07 | Added: Scheduled automation system with APScheduler, OS notifications, clipboard integration, browser automation |
 | 1.2 | 2026-01-07 | Added: few-shot examples, data summarization, case studies, quick-start wizard, workflow conditionals, prompt inventory, chain-of-thought |
 | 1.1 | 2026-01-06 | Added critical review improvements: testing, security, error handling, MVP prioritization, example prompt content |
 | 1.0 | 2026-01-06 | Initial plan based on AI Prompt Engineering Research Guide |
@@ -88,7 +89,8 @@ api/
 │   │   ├── workflow_engine.py      # Multi-step orchestration
 │   │   ├── response_parser.py      # Parse AI responses
 │   │   ├── cache_manager.py        # Response caching (15min TTL)
-│   │   └── evaluation.py           # Quality metrics & logging
+│   │   ├── evaluation.py           # Quality metrics & logging
+│   │   └── automation.py           # Scheduled tasks (NEW v1.3)
 │   └── claude_client.py            # Claude API wrapper (optional)
 ├── prompts/                        # YAML prompt templates
 │   ├── technical/                  # 3 templates
@@ -123,7 +125,8 @@ ui/src/
 │   ├── FeedbackModal.tsx           # Rate analysis quality
 │   ├── OnboardingWizard.tsx        # First-time user quick-start (NEW v1.2)
 │   ├── CaseStudyViewer.tsx         # Browse case studies (NEW v1.2)
-│   └── GlossaryTooltip.tsx         # Educational tooltips (NEW v1.2)
+│   ├── GlossaryTooltip.tsx         # Educational tooltips (NEW v1.2)
+│   └── ScheduledTaskManager.tsx    # Manage scheduled AI tasks (NEW v1.3)
 ├── hooks/
 │   └── useAIAnalysis.ts            # AI API custom hooks
 ├── types/
@@ -976,6 +979,523 @@ async def _emit_progress(self, workflow_id: str, state: WorkflowState):
 
 ---
 
+## Scheduled Automation (NEW v1.3)
+
+### Purpose
+
+Enable users to schedule automated prompt generation and execution at specific times (e.g., daily morning briefing at 8 AM). This is particularly useful for **Manual Mode** users who want prompts automatically prepared and ready to paste into Claude Code/Claude.ai.
+
+### Use Cases
+
+1. **Daily Morning Briefing**: Auto-generate market analysis prompt at 8 AM
+2. **Weekly Portfolio Review**: Sunday evening portfolio rebalancing analysis
+3. **Event-Driven Alerts**: Pre-earnings analysis for watched symbols
+4. **Custom Schedules**: User-defined analysis routines
+
+### Architecture
+
+```python
+# api/services/ai/automation.py
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+import subprocess
+import platform
+
+class ScheduledTaskManager:
+    """Manage scheduled prompt generation and notifications."""
+
+    def __init__(self, db, prompt_manager, data_formatter):
+        self.db = db
+        self.prompt_manager = prompt_manager
+        self.data_formatter = data_formatter
+
+        # Configure scheduler with SQLite persistence
+        jobstores = {
+            'default': SQLAlchemyJobStore(url='sqlite:///data/trading.db')
+        }
+        self.scheduler = AsyncIOScheduler(jobstores=jobstores)
+        self.scheduler.start()
+
+    async def create_scheduled_task(
+        self,
+        name: str,
+        template_category: str,
+        template_name: str,
+        schedule_type: str,  # 'cron' or 'interval'
+        schedule_config: dict,
+        input_params: dict,
+        notification_method: str = 'clipboard'  # 'clipboard', 'browser', 'both'
+    ) -> str:
+        """Create a new scheduled task."""
+
+        # Store task in database
+        task_id = await self.db.execute("""
+            INSERT INTO ai_scheduled_tasks
+            (name, template_category, template_name, schedule_type,
+             schedule_config, input_params, notification_method, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            name, template_category, template_name, schedule_type,
+            json.dumps(schedule_config), json.dumps(input_params),
+            notification_method, True
+        ))
+
+        # Schedule job
+        if schedule_type == 'cron':
+            job = self.scheduler.add_job(
+                self._execute_scheduled_task,
+                'cron',
+                args=[task_id],
+                id=f'task_{task_id}',
+                **schedule_config  # hour=8, minute=0, day_of_week='mon-fri'
+            )
+        elif schedule_type == 'interval':
+            job = self.scheduler.add_job(
+                self._execute_scheduled_task,
+                'interval',
+                args=[task_id],
+                id=f'task_{task_id}',
+                **schedule_config  # hours=24, minutes=0
+            )
+
+        return task_id
+
+    async def _execute_scheduled_task(self, task_id: int):
+        """Execute a scheduled task: generate prompt and notify user."""
+
+        # Fetch task details
+        task = await self.db.fetch_one(
+            "SELECT * FROM ai_scheduled_tasks WHERE id = ?",
+            (task_id,)
+        )
+
+        if not task or not task['active']:
+            return
+
+        try:
+            # Render prompt with current data
+            input_params = json.loads(task['input_params'])
+            prompt = await self.prompt_manager.render_template(
+                f"{task['template_category']}/{task['template_name']}",
+                input_params
+            )
+
+            # Store rendered prompt
+            await self.db.execute("""
+                INSERT INTO ai_scheduled_executions
+                (task_id, rendered_prompt, executed_at, status)
+                VALUES (?, ?, CURRENT_TIMESTAMP, 'pending')
+            """, (task_id, prompt))
+
+            # Notify user based on method
+            notification_method = task['notification_method']
+
+            if notification_method in ['clipboard', 'both']:
+                self._copy_to_clipboard(prompt)
+
+            if notification_method in ['browser', 'both']:
+                self._open_browser()
+
+            # Send OS notification
+            self._send_notification(
+                title=f"StarkMatter AI: {task['name']}",
+                message="Prompt generated and copied to clipboard. Paste in Claude Code."
+            )
+
+            # Log success
+            await self.db.execute("""
+                UPDATE ai_scheduled_tasks
+                SET last_run = CURRENT_TIMESTAMP, run_count = run_count + 1
+                WHERE id = ?
+            """, (task_id,))
+
+        except Exception as e:
+            # Log error
+            await self.db.execute("""
+                UPDATE ai_scheduled_tasks
+                SET last_error = ?, last_run = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (str(e), task_id))
+            raise
+
+    def _copy_to_clipboard(self, text: str):
+        """Copy text to system clipboard."""
+        system = platform.system()
+
+        if system == 'Darwin':  # macOS
+            subprocess.run(['pbcopy'], input=text.encode(), check=True)
+        elif system == 'Linux':
+            subprocess.run(['xclip', '-selection', 'clipboard'],
+                         input=text.encode(), check=True)
+        elif system == 'Windows':
+            subprocess.run(['clip'], input=text.encode(), check=True)
+
+    def _open_browser(self):
+        """Open Claude.ai in browser."""
+        system = platform.system()
+
+        if system == 'Darwin':
+            subprocess.run(['open', 'https://claude.ai'])
+        elif system == 'Linux':
+            subprocess.run(['xdg-open', 'https://claude.ai'])
+        elif system == 'Windows':
+            subprocess.run(['start', 'https://claude.ai'], shell=True)
+
+    def _send_notification(self, title: str, message: str):
+        """Send OS notification."""
+        system = platform.system()
+
+        if system == 'Darwin':  # macOS
+            subprocess.run([
+                'osascript', '-e',
+                f'display notification "{message}" with title "{title}"'
+            ])
+        elif system == 'Linux':
+            subprocess.run(['notify-send', title, message])
+        elif system == 'Windows':
+            # Use Windows 10 toast notifications
+            from win10toast import ToastNotifier
+            toaster = ToastNotifier()
+            toaster.show_toast(title, message, duration=10)
+
+    async def update_schedule(self, task_id: int, schedule_config: dict):
+        """Update task schedule."""
+        # Reschedule job
+        job_id = f'task_{task_id}'
+        self.scheduler.reschedule_job(job_id, trigger='cron', **schedule_config)
+
+        # Update database
+        await self.db.execute("""
+            UPDATE ai_scheduled_tasks
+            SET schedule_config = ?
+            WHERE id = ?
+        """, (json.dumps(schedule_config), task_id))
+
+    async def pause_task(self, task_id: int):
+        """Pause a scheduled task."""
+        job_id = f'task_{task_id}'
+        self.scheduler.pause_job(job_id)
+        await self.db.execute(
+            "UPDATE ai_scheduled_tasks SET active = FALSE WHERE id = ?",
+            (task_id,)
+        )
+
+    async def resume_task(self, task_id: int):
+        """Resume a paused task."""
+        job_id = f'task_{task_id}'
+        self.scheduler.resume_job(job_id)
+        await self.db.execute(
+            "UPDATE ai_scheduled_tasks SET active = TRUE WHERE id = ?",
+            (task_id,)
+        )
+
+    async def delete_task(self, task_id: int):
+        """Delete a scheduled task."""
+        job_id = f'task_{task_id}'
+        self.scheduler.remove_job(job_id)
+        await self.db.execute(
+            "DELETE FROM ai_scheduled_tasks WHERE id = ?",
+            (task_id,)
+        )
+```
+
+### Database Schema
+
+```sql
+-- Scheduled tasks configuration
+CREATE TABLE IF NOT EXISTS ai_scheduled_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    template_category TEXT NOT NULL,
+    template_name TEXT NOT NULL,
+    schedule_type TEXT NOT NULL,      -- 'cron' or 'interval'
+    schedule_config TEXT NOT NULL,    -- JSON: {hour: 8, minute: 0, ...}
+    input_params TEXT NOT NULL,       -- JSON: template input parameters
+    notification_method TEXT DEFAULT 'clipboard',  -- clipboard, browser, both
+    active BOOLEAN DEFAULT TRUE,
+    last_run TIMESTAMP,
+    last_error TEXT,
+    run_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Scheduled task execution history
+CREATE TABLE IF NOT EXISTS ai_scheduled_executions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    rendered_prompt TEXT NOT NULL,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'pending',    -- pending, completed, failed
+    response TEXT,                    -- If user imports response
+    FOREIGN KEY (task_id) REFERENCES ai_scheduled_tasks(id)
+);
+
+CREATE INDEX idx_scheduled_tasks_active ON ai_scheduled_tasks(active);
+CREATE INDEX idx_scheduled_executions_task ON ai_scheduled_executions(task_id);
+```
+
+### API Endpoints
+
+Endpoints added to main API table above:
+- `GET /api/ai/schedules` - List all scheduled tasks
+- `POST /api/ai/schedules` - Create new scheduled task
+- `PUT /api/ai/schedules/{id}` - Update schedule/params
+- `DELETE /api/ai/schedules/{id}` - Delete scheduled task
+- `POST /api/ai/schedules/{id}/run` - Manually trigger task
+
+### Frontend Component
+
+```typescript
+// ui/src/components/ai/ScheduledTaskManager.tsx
+
+interface ScheduledTask {
+  id: number;
+  name: string;
+  templateCategory: string;
+  templateName: string;
+  scheduleType: 'cron' | 'interval';
+  scheduleConfig: CronConfig | IntervalConfig;
+  notificationMethod: 'clipboard' | 'browser' | 'both';
+  active: boolean;
+  lastRun?: string;
+  runCount: number;
+}
+
+export function ScheduledTaskManager() {
+  const { data: tasks, refetch } = useQuery('scheduled-tasks',
+    () => aiApi.getScheduledTasks()
+  );
+
+  const createTask = useMutation(aiApi.createScheduledTask, {
+    onSuccess: () => refetch()
+  });
+
+  return (
+    <div className="scheduled-tasks">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Scheduled AI Tasks</h2>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          + New Schedule
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {tasks?.map(task => (
+          <ScheduledTaskCard key={task.id} task={task} />
+        ))}
+      </div>
+
+      {/* Create/Edit Modal */}
+      <ScheduleEditor
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={createTask.mutate}
+      />
+    </div>
+  );
+}
+
+function ScheduledTaskCard({ task }: { task: ScheduledTask }) {
+  const toggleActive = useMutation(aiApi.toggleScheduledTask);
+  const runNow = useMutation(aiApi.runScheduledTask);
+
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex justify-between">
+        <div>
+          <h3 className="font-semibold">{task.name}</h3>
+          <p className="text-sm text-gray-600">
+            {task.templateCategory}/{task.templateName}
+          </p>
+          <p className="text-xs text-gray-500">
+            {formatSchedule(task.scheduleConfig)} •
+            {task.runCount} runs •
+            Last: {task.lastRun ? formatDate(task.lastRun) : 'Never'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => toggleActive.mutate(task.id)}
+            className={`px-3 py-1 rounded ${
+              task.active ? 'bg-green-100 text-green-700' : 'bg-gray-100'
+            }`}
+          >
+            {task.active ? 'Active' : 'Paused'}
+          </button>
+
+          <button
+            onClick={() => runNow.mutate(task.id)}
+            className="text-blue-600 hover:underline"
+          >
+            Run Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleEditor({ isOpen, onClose, onSave }) {
+  const [name, setName] = useState('');
+  const [template, setTemplate] = useState('');
+  const [schedule, setSchedule] = useState({ hour: 8, minute: 0 });
+  const [notificationMethod, setNotificationMethod] = useState('clipboard');
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h2 className="text-xl font-bold mb-4">Create Scheduled Task</h2>
+
+      <div className="space-y-4">
+        <input
+          placeholder="Task name (e.g., Daily Morning Briefing)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full border rounded p-2"
+        />
+
+        <select
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+          className="w-full border rounded p-2"
+        >
+          <option value="">Select template...</option>
+          <option value="workflows/daily_analysis">Daily Market Analysis</option>
+          <option value="technical/chart_analysis">Technical Analysis</option>
+          <option value="portfolio/diversification">Portfolio Review</option>
+        </select>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-600">Hour (24h)</label>
+            <input
+              type="number"
+              min="0"
+              max="23"
+              value={schedule.hour}
+              onChange={(e) => setSchedule({...schedule, hour: parseInt(e.target.value)})}
+              className="w-full border rounded p-2"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-600">Minute</label>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={schedule.minute}
+              onChange={(e) => setSchedule({...schedule, minute: parseInt(e.target.value)})}
+              className="w-full border rounded p-2"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm text-gray-600">Notification Method</label>
+          <select
+            value={notificationMethod}
+            onChange={(e) => setNotificationMethod(e.target.value)}
+            className="w-full border rounded p-2"
+          >
+            <option value="clipboard">Copy to clipboard only</option>
+            <option value="browser">Open browser (Claude.ai)</option>
+            <option value="both">Copy + Open browser</option>
+          </select>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 border rounded">
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onSave({ name, template, schedule, notificationMethod });
+              onClose();
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Create Schedule
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+```
+
+### Example: Daily Morning Briefing
+
+**User configures:**
+- Name: "Daily Morning Briefing"
+- Template: `workflows/daily_analysis`
+- Schedule: 8:00 AM, Monday-Friday
+- Symbols: AAPL, NVDA, TSLA
+- Notification: Clipboard + Browser
+
+**What happens at 8 AM:**
+1. System generates complete prompt with latest market data
+2. Copies prompt to clipboard
+3. Opens https://claude.ai in browser
+4. Sends macOS notification: "Daily briefing ready - paste in Claude"
+5. User pastes prompt, gets analysis
+6. User copies Claude's response
+7. User clicks "Import Response" in StarkMatter to save analysis
+
+### Advanced: Browser Automation (Optional)
+
+For users who want full automation:
+
+```python
+# api/services/ai/browser_automation.py (Optional - Phase 6+)
+
+from playwright.async_api import async_playwright
+
+class ClaudeBrowserAutomation:
+    """Automate Claude.ai interaction via browser (experimental)."""
+
+    async def execute_prompt_in_browser(self, prompt: str) -> str:
+        """
+        Open Claude.ai, paste prompt, wait for response, extract it.
+
+        WARNING: Requires user to be logged into Claude.ai
+        May break if Claude UI changes
+        Use at your own risk
+        """
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=False)
+            page = await browser.new_page()
+
+            # Navigate to Claude
+            await page.goto('https://claude.ai')
+
+            # Wait for chat input (assumes user is logged in)
+            await page.wait_for_selector('textarea[placeholder*="Message"]',
+                                        timeout=30000)
+
+            # Type prompt
+            await page.fill('textarea', prompt)
+            await page.press('textarea', 'Enter')
+
+            # Wait for response (look for stop generating button to appear then disappear)
+            await page.wait_for_selector('button:has-text("Stop")', timeout=5000)
+            await page.wait_for_selector('button:has-text("Stop")',
+                                        state='hidden', timeout=120000)
+
+            # Extract last message
+            messages = await page.query_selector_all('.message-content')
+            response = await messages[-1].inner_text()
+
+            await browser.close()
+            return response
+```
+
+---
+
 ## Backend Implementation
 
 ### API Endpoints
@@ -996,6 +1516,11 @@ async def _emit_progress(self, workflow_id: str, state: WorkflowState):
 | `/api/ai/metrics` | GET | Quality metrics dashboard data |
 | `/api/ai/chat` | POST | Interactive chat with context |
 | `/api/ai/morning-briefing` | GET | Generate daily briefing |
+| `/api/ai/schedules` | GET | List all scheduled tasks (NEW v1.3) |
+| `/api/ai/schedules` | POST | Create new scheduled task (NEW v1.3) |
+| `/api/ai/schedules/{id}` | PUT | Update scheduled task (NEW v1.3) |
+| `/api/ai/schedules/{id}` | DELETE | Delete scheduled task (NEW v1.3) |
+| `/api/ai/schedules/{id}/run` | POST | Manually trigger scheduled task (NEW v1.3) |
 
 ### Core Services
 
@@ -1709,6 +2234,8 @@ Before marking a template complete, verify:
 jinja2>=3.1.0           # Template rendering
 pyyaml>=6.0             # YAML template loading
 anthropic>=0.18.0       # Claude API client (optional)
+apscheduler>=3.10.0     # Scheduled task execution (NEW v1.3)
+playwright>=1.40.0      # Browser automation (optional - Phase 6+)
 ```
 
 ### JavaScript
@@ -2125,6 +2652,13 @@ user_prompt: |
 - [ ] Feedback system
 - [ ] Quality metrics
 - [ ] Claude API mode
+- [ ] **Scheduled automation** (NEW v1.3)
+  - [ ] Implement `automation.py` with APScheduler
+  - [ ] Add scheduled task database tables
+  - [ ] Create `ScheduledTaskManager.tsx` component
+  - [ ] Add schedule management endpoints
+  - [ ] OS notification integration (macOS/Linux/Windows)
+  - [ ] Optional: Browser automation with Playwright
 - [ ] Documentation
 
 ---
@@ -2439,7 +2973,7 @@ output_format:                  # Optional: for parsing
   structured_fields: [object]
 ```
 
-### Database Tables Summary (v1.2)
+### Database Tables Summary (v1.3)
 
 | Table | Purpose |
 |-------|---------|
@@ -2449,9 +2983,11 @@ output_format:                  # Optional: for parsing
 | `ai_signal_outcomes` | Signal performance tracking |
 | `ai_workflows` | Workflow execution state |
 | `ai_cache` | Response cache with TTL |
-| `ai_case_studies` | Few-shot examples and educational cases (NEW) |
+| `ai_case_studies` | Few-shot examples and educational cases |
+| `ai_scheduled_tasks` | Scheduled task configuration (NEW v1.3) |
+| `ai_scheduled_executions` | Scheduled task execution history (NEW v1.3) |
 
-### API Endpoints Summary (v1.2)
+### API Endpoints Summary (v1.3)
 
 | Category | Endpoints |
 |----------|-----------|
@@ -2461,5 +2997,6 @@ output_format:                  # Optional: for parsing
 | **Workflows** | POST `/workflow`, GET `/workflow/{id}/status` |
 | **History** | GET `/history`, GET `/history/{id}` |
 | **Feedback** | POST `/feedback` |
-| **Case Studies** | GET `/case-studies`, GET `/case-studies/{id}` (NEW) |
+| **Case Studies** | GET `/case-studies`, GET `/case-studies/{id}` |
+| **Scheduled Tasks** | GET `/schedules`, POST `/schedules`, PUT `/schedules/{id}`, DELETE `/schedules/{id}`, POST `/schedules/{id}/run` (NEW v1.3) |
 | **Health** | GET `/health`|
