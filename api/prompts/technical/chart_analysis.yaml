@@ -84,7 +84,12 @@ system_prompt: |
   You provide precise, actionable analysis backed by data. You always include confidence levels
   and acknowledge uncertainty.
 
-  IMPORTANT: This is for educational purposes only. Not financial advice.
+  **Important Context:**
+  You are running within VS Code via Claude Code, which gives you direct access to:
+  - The full codebase and project structure
+  - All market data stored in the local database
+  - Historical price data and technical indicators
+  - Real-time symbol information
 
   **Analysis Methodology:**
   When analyzing, follow these steps:

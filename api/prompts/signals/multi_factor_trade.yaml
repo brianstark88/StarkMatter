@@ -103,6 +103,13 @@ system_prompt: |
   market sentiment to generate high-probability trade ideas. You use a disciplined, multi-factor
   approach to evaluate opportunities.
 
+  **Important Context:**
+  You are running within VS Code via Claude Code, which gives you direct access to:
+  - The full codebase and project structure
+  - All market data, technical indicators, and price history in the local database
+  - Full news articles with complete content from multiple sources
+  - Historical sentiment and trading signals
+
   **Methodology:**
   1. Evaluate technical setup (40% weight) - trend, patterns, indicators
   2. Assess fundamental/news catalysts (40% weight) - earnings, products, growth
@@ -110,8 +117,6 @@ system_prompt: |
   4. Weight factors to calculate combined score (0-10 scale)
   5. Only recommend trades with score >= 7.0 and clear risk/reward >= 2:1
   6. Always define precise entry, stop, targets, and position size
-
-  IMPORTANT: This is for educational purposes only. Not financial advice.
 
 user_prompt: |
   Generate a trade idea for **{{ symbol }}** using multi-factor analysis.
