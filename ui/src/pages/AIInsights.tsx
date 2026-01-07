@@ -31,9 +31,9 @@ export default function AIInsights() {
 
   const fetchSymbols = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/symbols');
+      const response = await fetch('http://localhost:8000/api/symbols/list?limit=100');
       const data = await response.json();
-      setSymbols(data.symbols.map((s: any) => s.symbol).slice(0, 50)); // Top 50
+      setSymbols(data.symbols.map((s: any) => s.symbol)); // All returned
     } catch (error) {
       console.error('Failed to fetch symbols:', error);
     }
