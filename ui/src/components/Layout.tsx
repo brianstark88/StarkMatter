@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import BackendStatus from './BackendStatus';
 
 interface LayoutProps {
   children: ReactNode;
@@ -115,6 +116,14 @@ export default function Layout({ children }: LayoutProps) {
                 })}
               </nav>
             </div>
+
+            {/* Backend Status */}
+            {!isCollapsed && (
+              <div className="px-2 pb-4">
+                <BackendStatus />
+              </div>
+            )}
+
             <div className={cn(
               "flex-shrink-0 flex border-t border-gray-200 dark:border-gray-700 p-4",
               isCollapsed && "justify-center p-2"
