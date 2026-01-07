@@ -259,9 +259,9 @@ class ResponseParser:
             data['take_profit'] = float(target_match.group(2))
 
         # Risk/Reward ratio
-        rr_match = re.search(r'r[:/]?r|risk[:/]reward)[:\s]*(\d+(?:\.\d+)?)[:\s]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+        rr_match = re.search(r'(r[:/]?r|risk[:/]reward)[:\s]*(\d+(?:\.\d+)?)[:\s]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
         if rr_match:
-            data['risk_reward_ratio'] = f"{rr_match.group(1)}:{rr_match.group(2)}"
+            data['risk_reward_ratio'] = f"{rr_match.group(2)}:{rr_match.group(3)}"
         else:
             # Try simpler pattern like "1:2"
             rr_match = re.search(r'\b(\d+)[:\s]*(\d+)\s*(r[:/]?r|ratio)', text, re.IGNORECASE)
