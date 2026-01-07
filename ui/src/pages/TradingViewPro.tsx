@@ -77,6 +77,7 @@ const TradingViewPro: React.FC = () => {
   const [panOffset, setPanOffset] = useState(0);
   const [showCrosshair, setShowCrosshair] = useState(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const indicatorCanvasRef = useRef<HTMLCanvasElement>(null);
   const [tradingModal, setTradingModal] = useState<{ isOpen: boolean; orderType: 'BUY' | 'SELL' }>({
@@ -87,6 +88,7 @@ const TradingViewPro: React.FC = () => {
 
   const intervals = ['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W', '1M'];
   const watchlistSymbols = ['AAPL', 'GOOGL', 'MSFT', 'NVDA', 'TSLA', 'SPY', 'QQQ', 'META', 'AMZN', 'AMD'];
+  const indicatorMenuRef = useRef<HTMLDivElement>(null);
 
   // WebSocket connection for real-time quotes
   const { quotes: wsQuotes, isConnected: wsConnected } = useQuoteStream(watchlistSymbols);
@@ -94,6 +96,20 @@ const TradingViewPro: React.FC = () => {
     'SMA20', 'SMA50', 'SMA200', 'EMA20', 'RSI', 'MACD', 'Bollinger Bands',
     'Volume', 'VWAP', 'Stochastic', 'ATR', 'OBV'
   ];
+
+  // Close indicator menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (indicatorMenuRef.current && !indicatorMenuRef.current.contains(event.target as Node)) {
+        setShowIndicatorMenu(false);
+      }
+    };
+
+    if (showIndicatorMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showIndicatorMenu]);
 
   // Fetch historical data for selected symbol
   const { data: historicalData, isLoading: loadingHistory, refetch: refetchHistory } = useQuery({
@@ -499,18 +515,51 @@ const TradingViewPro: React.FC = () => {
       ctx.fill();
     }
 
-    // Draw volume bars at the bottom
-    const maxVolume = Math.max(...visibleData.map((d: ChartData) => d.volume));
-    const volumeHeight = chartHeight * 0.2;
+    // Draw volume bars at the bottom (only if Volume indicator is selected)
+    if (selectedIndicators.includes('Volume')) {
+      const maxVolume = Math.max(...visibleData.map((d: ChartData) => d.volume));
+      const volumeHeight = chartHeight * 0.2;
 
-    visibleData.forEach((data: ChartData, index: number) => {
-      const x = padding.left + index * barWidth;
-      const barHeight = (data.volume / maxVolume) * volumeHeight;
-      const y = height - padding.bottom - barHeight;
+      visibleData.forEach((data: ChartData, index: number) => {
+        const x = padding.left + index * barWidth;
+        const barHeight = (data.volume / maxVolume) * volumeHeight;
+        const y = height - padding.bottom - barHeight;
 
-      ctx.fillStyle = data.close >= data.open ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-      ctx.fillRect(x, y, barWidth * 0.8, barHeight);
-    });
+        ctx.fillStyle = data.close >= data.open ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+        ctx.fillRect(x, y, barWidth * 0.8, barHeight);
+      });
+    }
+
+    // Draw indicator legend
+    let legendY = padding.top + 10;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+
+    if (indicators.sma20 && !isNaN(indicators.sma20[indicators.sma20.length - 1])) {
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(`SMA20: ${indicators.sma20[indicators.sma20.length - 1].toFixed(2)}`, padding.left + 10, legendY);
+      legendY += 15;
+    }
+    if (indicators.sma50 && !isNaN(indicators.sma50[indicators.sma50.length - 1])) {
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillText(`SMA50: ${indicators.sma50[indicators.sma50.length - 1].toFixed(2)}`, padding.left + 10, legendY);
+      legendY += 15;
+    }
+    if (indicators.sma200 && !isNaN(indicators.sma200[indicators.sma200.length - 1])) {
+      ctx.fillStyle = '#8b5cf6';
+      ctx.fillText(`SMA200: ${indicators.sma200[indicators.sma200.length - 1].toFixed(2)}`, padding.left + 10, legendY);
+      legendY += 15;
+    }
+    if (indicators.ema20 && !isNaN(indicators.ema20[indicators.ema20.length - 1])) {
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`EMA20: ${indicators.ema20[indicators.ema20.length - 1].toFixed(2)}`, padding.left + 10, legendY);
+      legendY += 15;
+    }
+    if (indicators.rsi && !isNaN(indicators.rsi[indicators.rsi.length - 1])) {
+      ctx.fillStyle = '#f97316';
+      ctx.fillText(`RSI: ${indicators.rsi[indicators.rsi.length - 1].toFixed(2)}`, padding.left + 10, legendY);
+      legendY += 15;
+    }
 
     // Draw crosshair
     if (showCrosshair && mousePos.x > 0 && mousePos.y > 0) {
@@ -543,6 +592,185 @@ const TradingViewPro: React.FC = () => {
     }
 
   }, [historicalData, chartType, zoomLevel, panOffset, selectedIndicators, calculateIndicators, showCrosshair, mousePos]);
+
+  // Render RSI/MACD indicator canvas
+  useEffect(() => {
+    if (!indicatorCanvasRef.current || !historicalData || historicalData.length === 0) return;
+    if (!selectedIndicators.includes('RSI') && !selectedIndicators.includes('MACD')) return;
+
+    const canvas = indicatorCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+
+    // Clear canvas
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, width, height);
+
+    const indicators = calculateIndicators(historicalData);
+    const dataCount = historicalData.length;
+    const visibleCount = Math.floor(dataCount / zoomLevel);
+    const startIndex = Math.max(0, Math.min(dataCount - visibleCount, panOffset));
+    const endIndex = Math.min(dataCount, startIndex + visibleCount);
+
+    const padding = { top: 10, right: 50, bottom: 10, left: 10 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const barWidth = chartWidth / (endIndex - startIndex);
+
+    // Draw RSI
+    if (selectedIndicators.includes('RSI') && indicators.rsi) {
+      // Draw reference lines
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 0.5;
+
+      // 70 line (overbought)
+      const y70 = padding.top + (chartHeight * 0.3);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y70);
+      ctx.lineTo(width - padding.right, y70);
+      ctx.stroke();
+
+      // 50 line (middle)
+      const y50 = padding.top + (chartHeight * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y50);
+      ctx.lineTo(width - padding.right, y50);
+      ctx.stroke();
+
+      // 30 line (oversold)
+      const y30 = padding.top + (chartHeight * 0.7);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y30);
+      ctx.lineTo(width - padding.right, y30);
+      ctx.stroke();
+
+      // Draw RSI line
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      let firstPoint = true;
+      for (let i = startIndex; i < endIndex; i++) {
+        if (isNaN(indicators.rsi[i])) continue;
+
+        const x = padding.left + (i - startIndex) * barWidth + barWidth / 2;
+        const y = padding.top + ((100 - indicators.rsi[i]) / 100) * chartHeight;
+
+        if (firstPoint) {
+          ctx.moveTo(x, y);
+          firstPoint = false;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+
+      // Draw labels
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('70', width - padding.right + 20, y70 + 3);
+      ctx.fillText('50', width - padding.right + 20, y50 + 3);
+      ctx.fillText('30', width - padding.right + 20, y30 + 3);
+
+      const currentRSI = indicators.rsi[indicators.rsi.length - 1];
+      if (!isNaN(currentRSI)) {
+        ctx.fillStyle = '#f97316';
+        ctx.textAlign = 'left';
+        ctx.fillText(`RSI: ${currentRSI.toFixed(2)}`, padding.left + 5, padding.top + 12);
+      }
+    }
+
+    // Draw MACD
+    if (selectedIndicators.includes('MACD') && indicators.macd) {
+      const macdValues = indicators.macd.macd.slice(startIndex, endIndex).filter(v => !isNaN(v));
+      const signalValues = indicators.macd.signal.slice(startIndex, endIndex).filter(v => !isNaN(v));
+      const histogramValues = indicators.macd.histogram.slice(startIndex, endIndex).filter(v => !isNaN(v));
+
+      if (macdValues.length === 0) return;
+
+      const maxValue = Math.max(...macdValues, ...signalValues, ...histogramValues.map(Math.abs));
+      const minValue = Math.min(...macdValues, ...signalValues, ...histogramValues.map(v => -Math.abs(v)));
+      const range = maxValue - minValue;
+
+      // Draw zero line
+      const zeroY = padding.top + ((maxValue - 0) / range) * chartHeight;
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, zeroY);
+      ctx.lineTo(width - padding.right, zeroY);
+      ctx.stroke();
+
+      // Draw histogram
+      for (let i = startIndex; i < endIndex; i++) {
+        if (isNaN(indicators.macd.histogram[i])) continue;
+
+        const x = padding.left + (i - startIndex) * barWidth;
+        const value = indicators.macd.histogram[i];
+        const barHeight = Math.abs((value / range) * chartHeight);
+        const y = value >= 0 ? zeroY - barHeight : zeroY;
+
+        ctx.fillStyle = value >= 0 ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+        ctx.fillRect(x, y, barWidth * 0.8, barHeight);
+      }
+
+      // Draw MACD line
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let firstPoint = true;
+      for (let i = startIndex; i < endIndex; i++) {
+        if (isNaN(indicators.macd.macd[i])) continue;
+
+        const x = padding.left + (i - startIndex) * barWidth + barWidth / 2;
+        const y = padding.top + ((maxValue - indicators.macd.macd[i]) / range) * chartHeight;
+
+        if (firstPoint) {
+          ctx.moveTo(x, y);
+          firstPoint = false;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+
+      // Draw Signal line
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      firstPoint = true;
+      for (let i = startIndex; i < endIndex; i++) {
+        if (isNaN(indicators.macd.signal[i])) continue;
+
+        const x = padding.left + (i - startIndex) * barWidth + barWidth / 2;
+        const y = padding.top + ((maxValue - indicators.macd.signal[i]) / range) * chartHeight;
+
+        if (firstPoint) {
+          ctx.moveTo(x, y);
+          firstPoint = false;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+
+      // Draw labels
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('MACD', padding.left + 5, padding.top + 12);
+    }
+
+  }, [historicalData, selectedIndicators, zoomLevel, panOffset, calculateIndicators]);
 
   // Handle canvas mouse events
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -807,34 +1035,39 @@ const TradingViewPro: React.FC = () => {
               </div>
 
               {/* Indicators Dropdown */}
-              <div className="relative group">
-                <button className="flex items-center space-x-2 px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700">
+              <div className="relative" ref={indicatorMenuRef}>
+                <button
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700"
+                  onClick={() => setShowIndicatorMenu(!showIndicatorMenu)}
+                >
                   <Activity className="h-4 w-4" />
                   <span>Indicators ({selectedIndicators.length})</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
 
-                <div className="absolute right-0 mt-2 w-64 bg-gray-800 rounded-lg shadow-xl border border-gray-700 hidden group-hover:block z-10">
-                  <div className="p-2">
-                    {availableIndicators.map(indicator => (
-                      <label key={indicator} className="flex items-center p-2 hover:bg-gray-700 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedIndicators.includes(indicator)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedIndicators([...selectedIndicators, indicator]);
-                            } else {
-                              setSelectedIndicators(selectedIndicators.filter(i => i !== indicator));
-                            }
-                          }}
-                          className="mr-2"
-                        />
-                        <span className="text-sm">{indicator}</span>
-                      </label>
-                    ))}
+                {showIndicatorMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-10">
+                    <div className="p-2">
+                      {availableIndicators.map(indicator => (
+                        <label key={indicator} className="flex items-center p-2 hover:bg-gray-700 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedIndicators.includes(indicator)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedIndicators([...selectedIndicators, indicator]);
+                              } else {
+                                setSelectedIndicators(selectedIndicators.filter(i => i !== indicator));
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">{indicator}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -856,10 +1089,14 @@ const TradingViewPro: React.FC = () => {
             )}
 
             {/* Indicator panels */}
-            {selectedIndicators.includes('RSI') && (
-              <div className="absolute bottom-0 left-0 right-0 h-24 bg-gray-900 border-t border-gray-800 p-2">
-                <div className="text-xs text-gray-500">RSI (14)</div>
-                <canvas ref={indicatorCanvasRef} className="w-full h-16" />
+            {(selectedIndicators.includes('RSI') || selectedIndicators.includes('MACD')) && (
+              <div className="absolute bottom-0 left-0 right-0 h-32 bg-gray-900 border-t border-gray-800 p-2">
+                <div className="text-xs text-gray-500">
+                  {selectedIndicators.includes('RSI') && 'RSI (14)'}
+                  {selectedIndicators.includes('RSI') && selectedIndicators.includes('MACD') && ' / '}
+                  {selectedIndicators.includes('MACD') && 'MACD (12, 26, 9)'}
+                </div>
+                <canvas ref={indicatorCanvasRef} className="w-full h-24" />
               </div>
             )}
           </div>
